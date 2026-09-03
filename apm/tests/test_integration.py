@@ -16,6 +16,25 @@ from apm.resolver import BacktrackingResolver, Resolver, ResolutionError
 from apm.transaction import Transaction, TransactionError
 
 
+def _symlinks_available() -> bool:
+    """Windows refuses os.symlink without Developer Mode or admin rights
+    (WinError 1314). The symlink tests are meaningless there, so skip them."""
+    with tempfile.TemporaryDirectory() as probe:
+        target = os.path.join(probe, "target")
+        open(target, "w").close()
+        try:
+            os.symlink(target, os.path.join(probe, "link"))
+        except (OSError, NotImplementedError, AttributeError):
+            return False
+    return True
+
+
+requires_symlinks = pytest.mark.skipif(
+    not _symlinks_available(),
+    reason="creating symlinks is not permitted on this platform",
+)
+
+
 # --------------------------------------------------------------- models
 
 def test_version_compare():
@@ -134,6 +153,7 @@ def make_staged_lib(tmp):
     return destdir
 
 
+@requires_symlinks
 def test_install_preserves_symlinks_not_copies():
     """Regression guard: copytree/copy2 dereference symlinks by default, which
     would silently turn libz.so into a second full copy of the library."""
@@ -154,6 +174,7 @@ def test_install_preserves_symlinks_not_copies():
         assert "/usr/bin/zprog" in files
 
 
+@requires_symlinks
 def test_sha256_mismatch_aborts_install():
     with tempfile.TemporaryDirectory() as tmp:
         destdir = make_staged_lib(tmp)
@@ -164,6 +185,7 @@ def test_sha256_mismatch_aborts_install():
             Transaction(db, os.path.join(tmp, "root")).install(pkg, apkg)
 
 
+@requires_symlinks
 def test_remove_deletes_only_owned_files():
     with tempfile.TemporaryDirectory() as tmp:
         destdir = make_staged_lib(tmp)
