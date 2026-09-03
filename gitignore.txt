@@ -1,0 +1,55 @@
+# --- Build artifacts / large binaries (NEVER commit) ---
+*.iso
+*.img
+*.qcow2
+*.raw
+*.tar.zst
+*.tar.xz
+*.tar.gz
+*.atspkg
+*.apkg
+*.deb
+*.rpm
+
+# --- LFS/BLFS source + build trees ---
+sources/
+build/
+dist/
+out/
+staging/
+destdir/
+chroot/
+rootfs/
+tools/
+squashfs-root/
+
+# --- Kernel build leftovers ---
+*.o
+*.ko
+*.mod
+*.mod.c
+.config.old
+vmlinux
+bzImage
+System.map
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# --- Logs / temp ---
+*.log
+*.tmp
+*.swp
+.DS_Store
+
+# --- Local machine paths / secrets ---
+.env
+*.key
+*.pem
+local/
