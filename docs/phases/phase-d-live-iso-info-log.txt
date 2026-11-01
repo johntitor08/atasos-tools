@@ -1,0 +1,132 @@
+================================================================================
+ atasOS 1.0 — Phase D (Installability) — Info Log
+ Date: 2026-07-17/18
+ Base: Linux From Scratch 12.3 + KDE Plasma 6, systemd init, kernel 6.16.1
+================================================================================
+
+GOAL
+----
+Turn the running atasOS distro (a hand-built LFS+Plasma system living in
+lfs.qcow2) into an installable OS: a live/bootable ISO plus a Calamares
+graphical installer that lays the system down on a blank disk and makes it boot.
+
+FINAL DELIVERABLES
+------------------
+  atasos-live.iso        Final hybrid BIOS+UEFI live ISO (v9), ~2.4 GB.
+                         Boots to KDE Plasma 6 live session with a working
+                         Calamares installer on the desktop. Installs fully
+                         hands-off (no manual steps).
+  lfs.qcow2              THE DISTRO itself (the master system the ISO is built
+                         from). Contains the ISO builder + all fixes below.
+
+  Snapshots inside lfs.qcow2 (rollback points):
+     #21 live-iso-milestone-2026-07-17
+     #22 cala-iso-built-2026-07-17
+
+HOW THE LIVE ISO WORKS
+----------------------
+  - Busybox static initramfs: finds the boot medium, loop-mounts the squashfs,
+    sets up an overlay (squashfs = lower, tmpfs = upper), switch_root into
+    systemd.
+  - Root filesystem = filesystem.squashfs (zstd), ~2.5 GB, built with
+    mksquashfs from the live distro (excludes build junk, swapfile, caches).
+  - GRUB 2.12 hybrid image (grub-mkrescue) boots on BOTH legacy BIOS and UEFI.
+    Key trick for the >4 GB-capable ISO9660: an xorriso wrapper injects
+    "-iso-level 3" so multi-extent large files are allowed.
+  - Kernel 6.16.1 with SQUASHFS + OVERLAY_FS built in.
+
+THE CALAMARES INSTALLER
+-----------------------
+  Calamares 3.3.14 (Qt6 build). Config in /etc/calamares/.
+  Sequence: welcome -> locale -> keyboard -> partition -> users -> summary,
+  then exec: partition, mount, unpackfs, machineid, fstab, locale, keyboard,
+  users, bootloader (grub), grubcfg, umount. Branding "atasos", Turkish UI.
+  Erase-disk install: MSDOS table, one ext4 root, GRUB to the disk MBR.
+
+  Dependencies built from source for the installer:
+     yaml-cpp 0.8.0, kpmcore 25.04.3, rsync 3.4.1, acl 2.3.2
+     (KF6 6.13, Qt6, PolkitQt6, parted/sfdisk already present.)
+
+================================================================================
+ BUGS FOUND AND FIXED DURING PHASE D
+================================================================================
+
+The distro had been "stripped" (strip --strip-unneeded over /usr) to shrink the
+squashfs from 8.8 GB to ~2.5 GB. That shrink caused a cascade of breakage that
+had to be repaired one by one:
+
+ 1. GRUB MODULES CORRUPTED
+    strip destroyed /usr/lib/grub/{i386-pc,x86_64-efi}/*.mod (their symbol
+    tables are load-bearing for grub's runtime module linker). Symptom: BIOS
+    boot dropped to "grub rescue>" with "disk hd96 not found".
+    FIX: reinstall grub for both platforms from the intact build trees; NEVER
+    strip /usr/lib/grub.
+
+ 2. SETUID BITS WIPED
+    strip cleared the setuid bit on dbus-daemon-launch-helper (needs 4750
+    root:messagebus), passwd, su, sudo, mount, umount, pkexec, unix_chkpwd,
+    polkit-agent-helper-1, etc. Without the dbus helper, D-Bus can't spawn
+    kpmcore's root helper -> Calamares saw NO disks.
+    FIX: restore the setuid bits.
+
+ 3. A LIBRARY TRUNCATED TO ZERO BYTES
+    A strip crash left /usr/lib/libsframe.so.2.0.0 truncated to 0 bytes, which
+    silently broke the assembler/linker ("gcc cannot create executables").
+    FIX: restored the pristine copy from lfs.img via debugfs. An ELF-integrity
+    scan (checks file size vs section-header-table end) over all of /usr
+    confirmed libsframe was the ONLY truncated file.
+
+ 4. rsync MISSING, THEN NO ACL SUPPORT
+    LFS ships no rsync; Calamares unpackfs needs it (rc=127). Built rsync 3.4.1,
+    which then failed rc=1 "ACLs are not supported on this client" because it
+    was built without libacl. Built acl 2.3.2 and rebuilt rsync against it.
+
+ 5. CALAMARES mount.conf WAS MISSING / MISCONFIGURED  (the big one)
+    grub-install kept failing inside the install chroot. Two layers:
+      a) mount.conf didn't exist -> /dev not bind-mounted -> grub-install:
+         "cannot find a device for /boot/grub (is /dev mounted?)".
+      b) After adding mount.conf, /dev and /run still weren't mounted. Root
+         cause: the Calamares mount module reads a per-entry "options:" field
+         with ",".join(...), so it MUST be a YAML LIST. Writing
+         "options: bind" (a string) became "b,i,n,d" garbage mount options.
+    FIX: mount.conf extraMounts with proc, sys, and
+         /dev + /run using  options: [ bind ]  (a real list), plus /dev/pts.
+    Result: chroot gets /dev, /dev/pts, /run -> grub-install succeeds.
+
+ 6. LIVE MEDIUM SHADOWED BY systemd
+    The initramfs move-mounts the ISO to /run/live/medium, but systemd later
+    mounts a fresh tmpfs over /run, hiding it -> unpackfs "source filesystem
+    does not exist" (findmnt still lists it; the path is just shadowed).
+    FIX: a systemd oneshot service (atasos-live-medium.service) mounts the ISO
+    to /mnt/isomedium (outside /run, can't be shadowed) using
+    `blkid -L ISOIMAGE` (probes the device directly, no udev symlink race);
+    guarded so it's a no-op on installed systems (no ISOIMAGE-labeled device).
+    unpackfs.conf source repointed to /mnt/isomedium/live/filesystem.squashfs.
+
+================================================================================
+ VERIFICATION
+================================================================================
+  - Live ISO boots on BIOS and UEFI to the SDDM greeter and Plasma 6 desktop.
+  - Full Calamares install completes all 23 jobs, "completion: succeeded",
+    fully unattended from the shipped ISO (no manual medium mount, no edits).
+  - The installed disk boots STANDALONE (no ISO attached):
+    GRUB (installed by Calamares) -> kernel 6.16.1 -> systemd -> SDDM greeter
+    showing the installed user plus the seeded eren/oyun accounts.
+
+================================================================================
+ NOTES / KNOWN QUIRKS
+================================================================================
+  - Guest locale is tr_TR (Turkish). Do NOT blindly strip /usr/share/locale.
+  - The installed system's grub.cfg has no console=ttyS0, so the installed
+    system has no serial console (the live ISO does). Verify installed boots
+    via the graphical screen, not serial.
+  - SDDM shows an on-screen virtual keyboard that can cover the login form.
+  - NEVER run a blanket strip again without excluding /usr/lib/grub and
+    watching for truncation; keep a pristine lfs.img around to restore from.
+
+================================================================================
+ SONRAKİ FAZ
+================================================================================
+  Phase E (paket yönetimi vb.) 2026-07-19'da başladı — kayıt:
+  atasos-phase-e-info-log.txt (atspkg paket yöneticisi orada belgelidir).
+================================================================================

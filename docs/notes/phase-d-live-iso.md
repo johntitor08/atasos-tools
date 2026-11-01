@@ -1,0 +1,36 @@
+# phase-d-live-iso
+
+> atasOS Phase D (installability) — COMPLETE: v9 live ISO + unattended Calamares install, verified
+
+Phase D = making atasOS (LFS 12.3 + KDE Plasma 6, systemd, kernel 6.16.1) installable. **COMPLETE as of 2026-07-18; deliverable was atasos-live-v13.iso** (2.66GB, sha256 829469566ba6…). **SUPERSEDED 2026-07-19 by atasos-live-v14.iso** (adds atspkg pkg manager; sha256 363c9975…b049f0) — v14 is now the archive.org item `atasos-live` content; v13 was deleted from both archive.org (404, history backup kept) and host. See [[phase-e-atspkg]] for the v14 build+publish. v13 fixed all v12 defects IN MASTER: v13 fixed all v12 defects IN MASTER: adjtime UTC, XDG_RUNTIME_DIR workarounds baked in, /etc/skel with panel config (Dolphin→Konsole→SystemSettings→Firefox), Calamares shellprocess job (settings.conf: …grubcfg→shellprocess→umount; /etc/calamares/modules/shellprocess.conf) userdels eren+oyun and removes autologin.conf in target. test10 verified: single-user SDDM, ata GUI login works, clock +03 TR, panel order correct. lfs.qcow2 snapshots: #23 pre-v13-fixes, #24 v13-built. Local files kept: v13 ISO+sha256, atasos-install-test10.qcow2 (all older ISOs/test disks deleted 2026-07-18). See [[lfs-build-defects]]. Full narrative + bug list lives in `/home/eren/Belgeler/lfs/atasos-phase-d-info-log.txt` — read that first, it is the authoritative record (predates v13).
+
+**Deliverables (verified again 2026-07-18 by me, fresh VM boots):**
+- `~/Belgeler/lfs/atasos-live.iso` (v9, ~2.4GB): hybrid BIOS+UEFI live ISO, boots to Plasma 6 + SDDM with Calamares. Verified: boots to login, `atasos-live-medium.service` active, `/mnt/isomedium/live/filesystem.squashfs` present, unpackfs.conf points to it.
+- `~/Belgeler/lfs/atasos-install-test5.qcow2`: disk installed by unattended Calamares run; boots standalone to SDDM greeter (atasOS branding, users A/E/O). Screendump-verified.
+- `lfs.qcow2` = the master distro; contains the ISO builder + all fixes. Snapshots #21 `live-iso-milestone-2026-07-17`, #22 `cala-iso-built-2026-07-17`.
+
+**Medium-shadowing fix (was the last open bug):** systemd mounts fresh tmpfs over /run, hiding the initramfs's /run/live/medium. Fixed via `atasos-live-medium.service` oneshot mounting `blkid -L ISOIMAGE` → `/mnt/isomedium` (outside /run); no-op on installed systems. unpackfs source = `/mnt/isomedium/live/filesystem.squashfs`.
+
+**Key recipes still useful:**
+- Test-VM headless boot: `qemu-system-x86_64 -enable-kvm -m 4096 -smp 2 -vga none -device virtio-gpu-pci -display none -monitor unix:mon.sock,server,nowait -serial unix:ser.sock,server,nowait` (+`-cdrom ISO -boot d` or `-drive file=X,if=virtio`). `-vga none` is MANDATORY with virtio-gpu-pci or X fails.
+- Serial driving (live ISO has console=ttyS0; root login empty password but getty still prompts Parola — send an extra `\n`): `( printf 'CMD\n'; sleep N ) | socat -t N - UNIX-CONNECT:ser.sock`.
+- Screendump: `printf 'screendump x.ppm\n' | socat -t 3 - UNIX-CONNECT:mon.sock` then magick to png.
+- Installed system has NO serial console (grub.cfg lacks console=ttyS0) — verify via screendump.
+- Main-VM instrumented launch + guest↔host transfer recipes: see info log + earlier notes (socat serial bridge; guest `busybox nc 10.0.2.2 PORT` push; qemu-nbd when off).
+- STRIP gotchas (cost days): never strip /usr/lib/grub (.mod symtabs load-bearing), strip wipes setuid bits (dbus-daemon-launch-helper 4750 root:messagebus, passwd/su/sudo/mount/pkexec...), watch for 0-byte truncation (elfscan.py in guest /root); restore pristine files from lfs.img via `debugfs -R "dump PATH out" lfs.img`.
+- Calamares mount.conf: per-mount `options:` MUST be a YAML list (`options: [ bind ]`), never a scalar.
+- grub-mkrescue >4GB squashfs: xorriso wrapper injecting `-iso-level 3`.
+
+**Possible next steps (not requested yet):** ISO on real hardware / USB stick test, Firefox track (guest /root/firefox-152.0.5, blocked on CONFIG_USER_NS kernel rebuild — see guest /root/claude-session-handoff.md; don't delete /root/firefox*). Old test qcow2s (test–test4) and the D1 no-calamares ISO were deleted 2026-07-18 (user-approved); only test5 + v9 ISO remain.
+
+**2026-07-18 evening — v12 + test9 findings (current ISO = atasos-live-v12.iso, 2.6GB, sha256 64d753ea…; test9.qcow2 = v12 UEFI install, VERIFIED booting):**
+- v12 install itself is GOOD: UEFI NVRAM entry works, hostname/users/root-pw(=user pw)/locale all applied, ata/ata login verified via serial.
+- Defects found on installed system (FIXED inside test9.qcow2, but must be fixed in master for next ISO): (1) `/etc/sddm.conf.d/autologin.conf` User=eren leaks from master → installs autologin as build user; (2) `/etc/adjtime` says LOCAL → clock shows UTC-as-local, 3h off; fix = UTC; (3) leftover master accounts `eren` AND `oyun` exist on every install (SDDM shows A/E/O).
+- **Headless observation trap (cost hours):** with `-display none`, guest X11 (installed SDDM greeter runs `/usr/bin/X`) sees no connected virtio-gpu output → scanout freezes at last frame; screendumps look stale/black and input appears dead, but input actually arrives (IRQ1 counter proves it). Live ISO session (kwin_wayland) renders fine headless. For installed-system GUI checks use `-display gtk` with `env DISPLAY=:0 WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000` (window on user's desktop; screendump goes live too).
+- HMP `mouse_move` with usb-tablet takes ABSOLUTE coords 0–32767 (scale px by 32767/width), not pixels.
+- QEMU `werror=enospc` default: host-disk-full PAUSES VM (`info status` → paused io-error); free space then `cont` — install survived this intact.
+- Rescue recipe: boot live ISO + disk with FRESH OVMF vars (`cp /usr/share/edk2/x64/OVMF_VARS.4m.fd`) else NVRAM boots the disk; mount /dev/vda2 /mnt, `systemctl --root=/mnt enable serial-getty@ttyS0` gives installed-system serial login.
+- **BIGGEST defect — pam_systemd/XDG_RUNTIME_DIR:** fresh-user GUI logins (ata) died in ~1s (black screen; kwin_wayland can't create socket; `user@.service` fails "XDG_RUNTIME_DIR is not set"; `loginctl` shows No sessions for console logins). pam_systemd.so lives in /usr/lib64/security (there is NO /usr/lib/security); pam_systemd only referenced by sddm's system-login stack and its env export doesn't reach sessions. WORKAROUND applied in test9.qcow2 (works, ata Plasma desktop verified): (1) `/etc/profile.d/xdg-runtime.sh` exporting XDG_RUNTIME_DIR=/run/user/$(id -u) if unset+dir exists (sddm wayland-session re-execs as login shell so profile.d is sourced); (2) `/etc/systemd/system/user@.service.d/xdg.conf` with `Environment=XDG_RUNTIME_DIR=/run/user/%i`. PROPER FIX for master: add pam_systemd to login/su PAM stacks + fix module path/libdir, then remove workarounds. eren's autologin session only worked by accident of its prebuilt home/session state.
+- sddm DisplayServer=wayland greeter (kwin under sddm user) crashes at startup on installed system — reverted to X11 default; likely same XDG_RUNTIME_DIR root cause; retest after PAM fix.
+- Serial-driving gotcha: double printf layers eat `%i` (wrote /run/user/0) — use echo for unit files over serial; also beware line-echo corruption in long serial commands.
+- Do NOT `pkill -f <qemu -name>` from a compound Bash command — it matches its own cmdline and kills the shell (use a bracketed pattern like `nam[e]`).

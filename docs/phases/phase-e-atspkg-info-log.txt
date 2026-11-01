@@ -1,0 +1,234 @@
+================================================================================
+ atasOS 1.0 — Phase E (Polish) — Info Log
+ Date: 2026-07-19 (başlangıç)
+ Base: Linux From Scratch 12.3 + KDE Plasma 6, systemd, kernel 6.16.1
+================================================================================
+
+GOAL
+----
+Phase E = cila: paket yönetimi, güncelleme mekanizması, tema/ilk açılış.
+Bu log Phase E işlerini kaydeder. (Phase D kaydı: atasos-phase-d-info-log.txt)
+
+================================================================================
+ E1 — PAKET YÖNETİCİSİ: atspkg 0.2.0
+ (2026-07-19: yazıldı, test edildi, GUEST'E KURULDU, kendini kaydetti)
+================================================================================
+
+GÜN SONU DURUMU (2026-07-19)
+----------------------------
+  - Guest /usr/bin/atspkg = 0.2.0 (3 güvenlik yaması + kaydet komutu dahil),
+    kendi DB'sinde kayıtlı: "atspkg listele" -> atspkg 0.2.0-1, dogrula temiz.
+  - Snapshot #25 pre-atspkg-2026-07-19 (kurulum ÖNCESİ geri dönüş noktası).
+  - Depo iskeleti hazır ve file:// ile doğrulandı; archive.org yayını bekliyor.
+
+KONUM (host)
+------------
+  ~/Belgeler/lfs/atspkg/atspkg            tek dosyalık bash betiği (0.2.0)
+  ~/Belgeler/lfs/atspkg/README.md         tam kullanım + tasarım belgesi
+  ~/Belgeler/lfs/atspkg/ornekler/         merhaba (çalışan örnek), sablon-autotools
+  ~/Belgeler/lfs/atspkg/tarifler/atspkg/  atspkg'nin kendi tarifi (self-hosting)
+  ~/Belgeler/lfs/depo/                    depo iskeleti: atspkg-0.2.0-1 paketi,
+                                          atspkg.index, depo-indexle.sh, README
+  Guest: /usr/bin/atspkg, /usr/share/doc/atspkg/README.md,
+         /var/lib/atspkg/db/ (atspkg kayıtlı), /var/cache/atspkg, /etc/atspkg,
+         /root/merhaba-1.0-1.atspkg.tar.zst (test paketi),
+         /root/atspkg.liste (kaydet liste örneği)
+
+NE YAPIYOR
+----------
+  - Paket biçimi: ad-sürüm-yayın.atspkg.tar.zst (.PKGINFO + .INSTALL + dosyalar)
+  - Tariften derleme (PKGBUILD benzeri "tarif" dosyası, DESTDIR=$pkgdir mantığı)
+  - kur/sil/yükselt + dosya-listesi veritabanı (/var/lib/atspkg/db/<ad>/)
+  - Sorgular: listele, bilgi, dosyalar, sahip, dogrula (sha256), ara
+  - Basit depo: /etc/atspkg/atspkg.conf'ta DEPO=<url>; <url>/atspkg.index
+    (satır: ad sürüm yayın dosyaadı sha256); guncelle/yukselt komutları
+  - Bağımlılık + ters bağımlılık denetimi (--zorla ile atlanır), flock kilidi
+  - Kancalar: kurulum_sonrasi / kaldirma_oncesi / kaldirma_sonrasi
+  - Komutlar Türkçe, İngilizce eşleri de geçerli (install/remove/...)
+
+atasOS'A ÖZGÜ KRİTİK KARARLAR
+-----------------------------
+  1. tar açılımı --keep-directory-symlink ile: /bin,/sbin,/lib -> usr/*
+     symlink'leri korunur (lfs.img'deki "/sbin gerçek dizin" defekti bir
+     paket kurulumuyla ASLA tekrarlanamaz). Sahte kökte doğrulandı.
+  2. İndirici curl -> wget -> python3 (doğrulamasız SSL; guest'te sertifika
+     deposu yok — bilinen ortam kısıtı).
+  3. Sadece LFS taban araçları: bash, GNU tar, zstd, coreutils, flock.
+     Guest'te ek bağımlılık gerektirmez.
+  4. Güvenlik: pakette ".." veya mutlak yol varsa kurulum reddedilir;
+     silmede dizinler yalnızca boşsa rmdir edilir.
+
+HOST'TA GEÇEN TESTLER (sahte kök: ATSPKG_ROOT)
+----------------------------------------------
+  - derle -> kur -> listele/bilgi/dosyalar/sahip/dogrula -> çalıştırma
+  - dogrula: elle bozulan dosyayı yakaladı (çıkış 1)
+  - yükseltme: 1.0 -> 1.1 -> 1.2; eski sürümden kalan dosya + boşalan dizin
+    otomatik temizlendi
+  - bağımlılık: eksik bağımlılıkta red, --zorla ile kurulum; ters bağımlılık
+    varken silme reddi
+  - sil: kök tertemiz kaldı (yalnız atspkg db dizinleri)
+  - /bin -> usr/bin symlink'li kökte kurulum+silme: symlink korundu
+  - depo akışı file:// deposuyla: guncelle -> ada göre kur -> dizin
+    yenilenince yukselt -> "her şey güncel"
+
+GUEST'E KURULUM (2026-07-19, TAMAMLANDI)
+----------------------------------------
+  [x] lfs.qcow2 snapshot #25 "pre-atspkg-2026-07-19" alındı (VM kapalı).
+  [x] atspkg guest'e kuruldu — nbd modülü çalışan çekirdekte yoktu
+      (7.1.3 kurulu / 7.1.2 çalışıyor, Arch klasiği), onun yerine:
+      qemu-storage-daemon FUSE export (qcow2 -> ham imaj, root'suz)
+      + lfs.qcow2'nun İÇERİĞİ BÖLÜMLEMESİZ SAF EXT4 çıktı (lfs.img gibi;
+      MBR'de sadece grub boot kodu var) -> debugfs -w ile doğrudan yazıldı:
+        /usr/bin/atspkg            0755 root:root (dump+cmp ile birebir)
+        /var/lib/atspkg/db, /var/cache/atspkg, /etc/atspkg  (root:root)
+        /usr/share/doc/atspkg/README.md
+      Sonra: e2fsck -fn TEMİZ (rc=0), daemon kapatıldı, qemu-img check
+      "No errors". Bu debugfs-üzerinden-FUSE yöntemi ileride de işe yarar.
+
+VM DUMAN TESTİ (2026-07-19, GEÇTİ)
+----------------------------------
+  [x] VM seri konsoldan (headless, ser.sock) root ile sürüldü:
+      - atspkg surum -> 0.1.0; atspkg listele -> boş (beklenen)
+      - merhaba-1.0-1 paketi base64 ile seri hattan aktarıldı (sha256 birebir)
+      - kur -> /usr/bin/merhaba çalıştı ("merhaba, atasOS!") -> listele/sahip/
+        dogrula hepsi doğru -> sil -> dosya gitti, /bin /sbin /lib symlink'leri
+        SAĞLAM. VM systemctl poweroff ile temiz kapatıldı.
+      - Örnek paket guest'te /root/merhaba-1.0-1.atspkg.tar.zst olarak bırakıldı.
+  [x] Sonrasında atspkg betiği host'ta iyileştirildi (kanca çalıştırma
+      pozisyonel argümanlarla, enjeksiyona kapalı) ve guest kopyası aynı
+      FUSE+debugfs yöntemiyle eşitlendi (dump+cmp birebir, e2fsck temiz,
+      qemu-img check hatasız).
+
+GÜVENLİK YAMALARI (2026-07-19, paralel oturum + entegrasyon)
+------------------------------------------------------------
+  [x] Komut enjeksiyonu: kanca_calistir() yol/fonksiyon adını bash -c
+      dizgisine gömmüyor, pozisyonel argümanla geçiriyor (root RCE kapandı).
+  [x] Symlink kaçışı: baglanti_denetle() kök dışına çıkan GÖRELİ symlink
+      hedefli paketleri açımdan ÖNCE reddediyor (yarım açılma yok; GNU tar
+      symlink-üzerinden-yazmayı zaten engelliyordu, bu kalan boşluğu kapadı).
+  [x] dotglob: derle artık pkgdir kökündeki gizli dosyaları da paketliyor.
+  Yamalı 0.2.0 guest'e eşitlendi (debugfs, cmp birebir, fsck temiz).
+
+atspkg 0.2.0 — kaydet KOMUTU + KENDİNİ BARINDIRMA (2026-07-19)
+--------------------------------------------------------------
+  [x] Yeni komut: atspkg kaydet <ad> <sürüm> <liste> [açıklama] (adopt) —
+      elle kurulmuş yazılımı dosyalarına dokunmadan DB'ye alır; sonrasında
+      sil/dogrula/sahip normal çalışır. Host sahte kökte test edildi
+      (kayıt, mükerrer reddi, silmede gerçek dosyaların kalkması).
+  [x] Guest'te (VM, seri konsol) atspkg KENDİNİ kaydetti:
+      "atspkg listele" -> atspkg 0.2.0-1; dogrula temiz. Retroaktif
+      envanterin ilk kaydı. Liste dosyası: guest /root/atspkg.liste.
+  [x] Kendi tarifi: atspkg/tarifler/atspkg/tarif -> atspkg-0.2.0-1 paketi.
+  [x] Depo iskeleti: ~/Belgeler/lfs/depo/ (paket + atspkg.index +
+      depo-indexle.sh üretici + README). file:// ile uçtan uca test edildi
+      (guncelle -> depodan "atspkg kur" -> 0.2.0 çalışıyor).
+
+ENVANTER KARARI — İLERİYE-DÖNÜK POLİTİKA (2026-07-19, KAPANDI)
+-------------------------------------------------------------
+  Kalan elle kurulmuş BLFS yazılımlarının toplu retroaktif envanteri
+  YAPILMAYACAK. Gerekçe (host'tan guest'i salt-okunur FUSE+debugfs ile
+  inceleyerek doğrulandı):
+    - /root/blfs_build/ = 1003 girdi, build_blfs.sh (yüzlerce paket:
+      libdrm->freetype->Xorg->Qt6->KF6->Plasma6) + build.log mevcut.
+    - ANCAK hiçbir install_manifest.txt hayatta kalmamış; cmake kaynak
+      dizinlerinde build/ alt dizini bile yok (temizlenmiş). Autotools
+      paketleri zaten manifest bırakmaz. acl -> /sources'ta = LFS taban.
+    - Doğru dosya listesi ancak her paketi DESTDIR ile YENİDEN kurarak
+      çıkar; yüzlerce KDE paketi için pratik değil, sezgisel (mtime)
+      atıf güvenilmez.
+  POLİTİKA: atspkg kendini ilk gerçek kayıt olarak ekledi (self-host).
+  atspkg-öncesi taban "yönetilmeyen taban" kabul edilir; BUNDAN SONRA
+  kurulan/yükseltilen her şey atspkg'den geçer. (Kaynaktan-derlenen
+  dağıtımların olağan yaklaşımı.) İhtiyaç halinde tekil paket B seçeneği
+  ile (guest'te DESTDIR reçetesi + kaydet) doğru şekilde eklenebilir.
+
+v14 ISO — atspkg DAHİL (2026-07-19, TAMAMLANDI + TEST EDİLDİ)
+-------------------------------------------------------------
+  [x] Hedef: atspkg'yi canlı ISO'ya dahil etmek. atspkg zaten master'da (/)
+      kurulu olduğundan squashfs / kökünden üretilince otomatik dahil olur.
+  [x] Aşama 1 (offline, writable FUSE+debugfs, snapshot #26 pre-v14 alındı):
+      guest'e enjekte edildi — /root/build-final-iso14.sh (iso13'ün birebir
+      kopyası, sadece log/marker 13->14) + /etc/atspkg/atspkg.conf şablonu
+      (DEPO= yorumlu; 0644 root:root). e2fsck -fn TEMİZ, qemu-img check OK.
+  [x] Aşama 2 (master VM headless, serial ser.sock): bash build-final-iso14.sh
+      -> initramfs repack (1244189) + mksquashfs zstd (rc=0, 2626568192) +
+      grub-mkrescue xorriso-wrap (rc=0, 2666014720). FINAL_ISO14_DONE, hata yok.
+      unsquashfs -ll ile squashfs içinde atspkg DOĞRULANDI: /usr/bin/atspkg
+      (21751), /etc/atspkg/atspkg.conf, /usr/share/doc/atspkg/README.md,
+      /var/lib/atspkg/db/atspkg/{PKGINFO,files,sums} (self-register kaydı).
+      VM systemctl poweroff ile temiz kapatıldı. Snapshot #27 v14-built.
+  [x] Aşama 3 (çıkar+test): ISO FUSE+debugfs dump -> host
+      atasos-live-v14.iso (2666014720). sha256 guest=host BİREBİR
+      (363c997592421cee6370a2b677736254dcd65ab6e4f2e970e214645df5b049f0).
+      atasos-live-v14.iso.sha256 yazıldı.
+  [x] CANLI ISO TESTİ (taze VM, -cdrom v14, headless serial): boot -> root
+      giriş -> which atspkg=/usr/bin/atspkg; atspkg surum=0.2.0; atspkg
+      listele -> atspkg 0.2.0-1; atspkg dogrula atspkg -> "bütün dosyalar
+      sağlam". Kutudan çıkar çıkmaz çalışan+kayıtlı atspkg. VM temiz kapandı.
+  [x] CANLI ISO GUI DOĞRULAMA + SCREENSHOT (2026-07-19): v14 headless boot,
+      canlı Plasma oturumuna (eren, uid 1001, kwin_wayland) seri konsoldan
+      Konsole açıldı; atspkg surum/listele/dogrula/bilgi/dosyalar ekranda
+      çalışıyor. Görüntü: ~/Belgeler/lfs/atasos-v14-atspkg.png. (Küçük
+      bulgu: 'atspkg listele' normal kullanıcıda /var/cache/atspkg oluşturmaya
+      çalışıp izin uyarısı verdi — db_hazirla sorgularda da CACHEDIR yapıyor;
+      salt-okunur sorgular cache gerektirmemeli. İleride düzeltilebilir.)
+
+v14 archive.org YAYINI + v13 SİLME (2026-07-19, TAMAMLANDI)
+----------------------------------------------------------
+  [x] ia CLI host'ta yoktu -> izole venv'e kuruldu (scratchpad/ia-venv,
+      internetarchive 5.10.1). Kimlik ZATEN yapılandırılmış:
+      ~/.config/internetarchive/ia.ini [s3] access+secret (hesap: atasOS).
+  [x] v14 archive.org item 'atasos-live'e yüklendi. İLK deneme %94'te
+      RemoteDisconnected ile çöktü (uzun tek bağlantı düştü) -> v13 SİLİNMEDİ
+      (güvenli sıra). --retries 10 ile YENİDEN yüklendi, rc=0, %100.
+      Doğrulama: indirme URL'si HTTP 200, content-length 2666014720 (birebir),
+      .sha256 = 363c9975…b049f0 (ISO ile eşleşiyor). (ia list metadata
+      gecikmeli tazelenir; doğrudan URL/curl kesin doğrulama yolu.)
+  [x] v13 archive.org'dan silindi (ia delete): v13.iso + v13.iso.sha256 -> her
+      ikisi de URL'de 404. archive.org history/files/atasos-live-v13.iso.~1~
+      yedeği tutar (listede görünmez). YEREL v13 de silindi; host'ta yalnız
+      v14 kaldı.
+  NOT: tanıtım sitesi artifact'i (c7ac57c7…) hâlâ "v13" metnini gösteriyor —
+  item linki (archive.org/download/atasos-live) çalışıyor ama metin v14'e
+  güncellenmeli (ayrı adım).
+
+atspkg DEPOSU YAYINI + GÜNCELLEME MEKANİZMASI (2026-07-19, TAMAMLANDI)
+---------------------------------------------------------------------
+  [x] depo/ ayrı archive.org item 'atasos-depo'ya yüklendi (aynı venv ia +
+      ia.ini). Yüklenenler: atspkg-0.2.0-1.atspkg.tar.zst + atspkg.index +
+      README.md (depo-indexle.sh yerel araç, yüklenmedi). Metadata:
+      title/mediatype=software/description. rc=0.
+  [x] DOĞRULAMA (curl): <DEPO>/atspkg.index iniyor; paket HTTP 200, 9722 bayt,
+      sha256 2d756783… index ile eşleşiyor. DEPO=https://archive.org/download/atasos-depo
+  [x] UÇTAN UCA (host, ATSPKG_ROOT sahte kök, gerçek DEPO): atspkg guncelle ->
+      "paket dizini güncellendi (1 kayıt)"; atspkg kur atspkg -> depodan indirdi
+      + kurdu; listele -> atspkg 0.2.0-1. archive.org 302 redirect'leri sorunsuz.
+      => GÜNCELLEME MEKANİZMASI gerçek depoyla ÇALIŞIYOR.
+  [x] Guest /etc/atspkg/atspkg.conf'a aktif DEPO= satırı yazıldı (offline
+      debugfs, snapshot #pre-depo-conf, cmp birebir, e2fsck rc=0, qemu-img OK).
+      Master + gelecek ISO'lar depoya bağlı gelecek.
+
+GEREKSİZ GÖRÜLENLER — KULLANICI KARARI (2026-07-19)
+--------------------------------------------------
+  Kullanıcı şu kalan cila kalemlerini GEREKSİZ buldu, YAPILMAYACAK:
+  - Varsayılan tema / ilk açılış deneyimi (mevcut tema/panel yeterli sayıldı).
+  - kscreenlocker_greet.disabled'ın geri açılması.
+  (Bilerek atlandı — unutulmadı.)
+
+  [ ] (opsiyonel, atlandı) Tanıtım sitesi (c7ac57c7…) metnini v14'e güncelle:
+      indirme linki zaten v14 sunuyor, sadece görünen "v13" etiketi eski.
+      Kullanıcı şimdilik ATLADI. Not: artifact kaynağı bu oturumdan okunamadı
+      (WebFetch UUID'yi 'incomplete boot response' ile reddediyor, action:list
+      boş, uygulama-içi tarayıcı girişsiz, wrapper HTML içerik değil). Güncellemek
+      için artifact'ın </> Kod görünümündeki kaynağı gerekir.
+
+  ==> PHASE E fiilen TAMAM: E1 (atspkg) + depo + güncelleme mekanizması bitti;
+      kalan kalemler kullanıcı kararıyla kapsam dışı.
+
+================================================================================
+ SİTE / YAYIN NOTU (2026-07-19)
+================================================================================
+  - Tanıtım sitesi (claude.ai artifact c7ac57c7...) güncellendi: kurulum
+    bölümüne https://archive.org/download/atasos-live indirme bağlantısı +
+    "atasos-live-v13.iso · ~2,6 GB" notu eklendi.
+================================================================================

@@ -1,0 +1,127 @@
+================================================================================
+LFS / atasOS IMAGE BUG INVESTIGATION & FIX LOG
+Date: 2026-07-16
+Location: /home/eren/Belgeler/lfs  (host user: eren, uid 1000)
+================================================================================
+
+TL;DR: Found 3 build-time defects in the LFS/atasOS images -- (1) /sbin was a real
+dir instead of a symlink to usr/sbin, (2) system dirs owned by user eren (1001)
+not root = local privesc, (3) root fs stuck with an ext4 error flag. All fixed on
+both lfs.qcow2 (live) and lfs.img. Real root cause is the build script; bugs will
+return on rebuild unless it's corrected (see OPEN / FOLLOW-UP ITEMS at bottom).
+
+
+PURPOSE
+  Handoff summary for another session. Documents three build-time defects found
+  in the Linux From Scratch 12.3 / "atasOS 1.0" disk images and exactly how each
+  was fixed. All three are now fixed on both images.
+
+--------------------------------------------------------------------------------
+IMAGES IN THIS DIRECTORY
+--------------------------------------------------------------------------------
+  lfs.qcow2                                  LIVE VM disk. Distro "atasOS 1.0",
+                                             hostname "atasos". Standalone qcow2,
+                                             120 GiB virtual / ~51 GiB used.
+                                             Has 5 internal snapshots (rollback).
+                                             Root fs = whole-disk ext4 (no
+                                             partition table), root=/dev/vda,
+                                             UUID cf3cf64c-2b66-4464-8c5a-2e6a644086a4.
+                                             GRUB-booted (no -kernel/-append).
+  lfs.img                                    Raw secondary image, same fs UUID
+                                             (same build lineage). 120 GiB raw.
+  lfs-backup-working-plasma6-20260702.img    Backup (raw). Not modified.
+  vmlinuz-6.16.1-lfs                          Loose kernel file.
+  boot.log                                    OLD serial boot log (May 2026) that
+                                             first revealed the bugs.
+
+  Env notes: host has NO passwordless sudo. Claude's "!"-prefix cannot do
+  interactive sudo (no TTY) -> host root steps were run by the user in a normal
+  terminal. Inside the guest, root is NOT in sudoers (and doesn't need it).
+  Raw images can be inspected read-only WITHOUT root/mount using:
+      debugfs -R "stat /path"  lfs.img
+  qcow2 can only be opened when the VM is off (it holds a write lock while running).
+
+--------------------------------------------------------------------------------
+THE THREE BUGS (root cause = LFS build was done wrong)
+--------------------------------------------------------------------------------
+BUG 1 — /sbin was a REAL DIRECTORY instead of the merged-/usr symlink /sbin->usr/sbin
+  Evidence: /bin was a correct symlink but /sbin was a directory owned by eren,
+  and it contained a stray "/sbin/sbin -> usr/sbin" symlink. That stray link is
+  the fingerprint of running `ln -s usr/sbin /sbin` AFTER /sbin already existed as
+  a directory (ln drops the link INSIDE the dir instead of replacing it).
+  Impact: original boot.log showed
+      modprobe@*.service: Unable to locate executable '/sbin/modprobe'
+  because the kernel/systemd look for /sbin/modprobe. (systemd here is built
+  -KMOD, so it shells out to the /sbin/modprobe binary.) Later worked around by
+  hand-adding kmod symlinks inside the stray /sbin dir, so modprobe worked, but
+  the layout stayed wrong (duplicate util-linux binaries in /sbin AND /usr/sbin
+  that can drift, plus the junk /sbin/sbin).
+
+BUG 2 — System directories owned by user "eren" (uid/gid 1001) instead of root
+  Affected dir NODES (files inside were already root-owned): /usr, /usr/bin,
+  /usr/sbin, /usr/lib, /usr/libexec, /var, /usr/share, /usr/include, and more
+  (scattered, not just top level).
+  Impact: LOCAL PRIVILEGE ESCALATION. eren owning /usr/bin, /usr/sbin (mode 0755)
+  means eren can rename/replace any binary root later executes (sudo, su, service
+  binaries, etc.). Classic "forgot chown -R root:root" LFS mistake.
+
+BUG 3 — Root fs mounted "with errors, running e2fsck is recommended"
+  systemd-fsck-root is skipped every boot because the kernel cmdline mounts root
+  `rw` (ConditionPathIsReadWrite=!/), so the ext4 error flag never gets cleared.
+  NOTE: this was only present on the OLD lfs.img state. The LIVE qcow2 boots
+  clean (no error flag) — so nothing to fix there.
+
+--------------------------------------------------------------------------------
+WHAT WAS FIXED, ON WHICH IMAGE, AND HOW
+--------------------------------------------------------------------------------
+== lfs.img (fixed offline, NO root/mount needed, using e2fsck + debugfs -w) ==
+  Bug 3:  e2fsck -fy lfs.img   (replayed journal, cleared error flag, fixed counts)
+  Bug 1:  Built a debugfs script that hardlinked /sbin/nologin into /usr/sbin,
+          rm'd the 41 duplicate/junk /sbin entries, rmdir'd /sbin, then
+          `symlink /sbin usr/sbin`.  Ran a final `e2fsck -fy` (came back CLEAN).
+          Result: /sbin -> usr/sbin ; /sbin/modprobe -> /usr/sbin/modprobe ->
+          ../bin/kmod (real 487 KB binary) ; /usr/sbin/nologin preserved.
+  Bug 2:  debugfs `sif <dir> uid 0` / `gid 0` on the security-critical dirs
+          /usr, /usr/bin, /usr/sbin, /usr/lib, /var, /usr/libexec -> root:root.
+          (A FULL recursive chown of every scattered 1001-owned dir on lfs.img
+          was NOT done offline — that needs a root mount / find -uid 1001. The
+          flat binary PATH dirs, i.e. the actual privesc hole, ARE fully closed.)
+
+== lfs.qcow2 (LIVE atasOS) ==
+  Bug 2 — done from INSIDE the running guest as root (complete recursive fix):
+          chown -R root:root /usr /sbin /opt /srv /etc
+          find /var -xdev -uid 1001 -exec chown root:root {} +
+          Verified: /usr, /usr/bin, /usr/sbin, /usr/lib, /var, /usr/libexec,
+          /sbin all now root:root.
+  Bug 3 — not present (live boot mounts clean).
+  Bug 1 — done OFFLINE via qemu-nbd, VM powered off, on the host:
+          sudo modprobe nbd max_part=8
+          sudo qemu-nbd --connect=/dev/nbd0 /home/eren/Belgeler/lfs/lfs.qcow2
+          # then a guarded script: verify UUID cf3cf64c, e2fsck -fy /dev/nbd0,
+          # mount, preserve /sbin/nologin into /usr/sbin, rm -rf sbin,
+          # ln -s usr/sbin sbin, verify, umount, final e2fsck (CLEAN),
+          # qemu-nbd --disconnect /dev/nbd0
+          Verified: /sbin -> usr/sbin ; /sbin/modprobe resolves to /usr/bin/kmod ;
+          /usr/sbin/nologin present as root:root. nbd disconnected, image unlocked.
+
+--------------------------------------------------------------------------------
+CURRENT STATE (all green)
+--------------------------------------------------------------------------------
+  lfs.img    : Bug1 fixed, Bug2 (critical dirs) fixed, Bug3 fixed. fs clean.
+  lfs.qcow2  : Bug1 fixed, Bug2 fixed (full), Bug3 n/a. fs clean, VM ready to boot.
+  5 qcow2 internal snapshots left intact as rollback points.
+
+--------------------------------------------------------------------------------
+OPEN / FOLLOW-UP ITEMS
+--------------------------------------------------------------------------------
+  1. ROOT CAUSE is the build script, not the images. If atasOS/LFS is rebuilt
+     from the same scripts, Bug 1 and Bug 2 will return. Fix the build so the
+     directory layout is created AS ROOT and /bin,/sbin,/lib are made symlinks
+     (ln -s usr/bin /bin ; ln -s usr/sbin /sbin ; ln -s usr/lib /lib) BEFORE any
+     package is installed, and run chown -R root:root on the system tree.
+  2. lfs.img still has some non-critical scattered 1001-owned dirs (e.g.
+     /usr/share, /usr/include). Not a privesc risk, but to fully normalize:
+     loop-mount it as root and run  find /usr /var -uid 1001 -exec chown root:root {} +
+  3. Minor cosmetic boot noise (not bugs): regulatory.db load failure (needs BLFS
+     wireless-regdb; irrelevant on a wired VM) and an ACPI MMCONFIG message.
+================================================================================

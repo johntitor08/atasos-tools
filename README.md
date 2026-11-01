@@ -102,3 +102,8 @@ SONAME chain. Every copy in `transaction.py` uses `follow_symlinks=False`, and
 ```bash
 python -m pytest tests/ -q
 ```
+
+## atasOS build history
+
+The phase info logs from building atasOS itself (LFS fixes, live ISO +
+Calamares installer, atspkg) are in [docs/](docs/README.md).
