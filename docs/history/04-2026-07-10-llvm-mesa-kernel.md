@@ -1,0 +1,179 @@
+﻿atasOS Project — Continuation Prompt
+Paste this at the start of a new conversation to resume work with full context.
+________________
+
+
+System Overview
+* Project: atasOS — a custom Linux distro built from LFS/BLFS 12.3, running KDE Plasma 6.
+* Host: CachyOS (Arch-based), terminal prompt looks like ~ ❯ (zsh/starship).
+* Guest: Runs in QEMU/KVM. Guest shell prompt looks like -bash-5.3# (root) — do not confuse the two. Commands like qemu-img, qemu-system-x86_64, pacman only work on the host. Commands about the OS itself (kernel config, systemctl, package builds) run in the guest.
+* Disk image: /home/eren/Belgeler/lfs/lfs.qcow2 (qcow2, supports internal snapshots).
+* Standard boot command (run on host):
+qemu-system-x86_64 \
+  -drive file=/home/eren/Belgeler/lfs/lfs.qcow2,format=qcow2,if=virtio \
+  -m 4096 -smp 4 -enable-kvm \
+  -netdev user,id=net0 -device e1000,netdev=net0 \
+  -vga none \
+  -device virtio-gpu-gl-pci \
+  -device usb-ehci,id=usb \
+  -device usb-kbd \
+  -device usb-tablet \
+  -display gtk,gl=on \
+  -serial stdio
+* Login: user eren, password known to user. Root login also available on serial console.
+* RAM/swap: VM has 3.8GB RAM + a 4GB /swapfile. The swapfile is NOT always active after boot — it was found disabled (swapon --show empty) after a period of inactivity even though it's now in /etc/fstab (/swapfile none swap sw 0 0, added 2026-07-08). Always run free -h and swapon --show near the start of a session; if swap is 0, run swapon /swapfile.
+* Build source trees (inconsistent locations — check all when hunting for source):
+   * /root/blfs_build/ — main BLFS build tree (most KF6/Plasma packages)
+   * /root/blfs_build_mesa/ — Mesa source (mesa-24.3.4)
+   * /root/blfs_build_xorg/ — xorg-server source
+   * /root/blfs_build_systemd/ — systemd source
+   * /root/blfs_build_llvm/ — LLVM/Clang, SPIRV-Headers, SPIRV-Tools, SPIRV-LLVM-Translator source and build trees (new as of 2026-07-08/10)
+   * /root/blfs_build/kf6_logs/ — most build logs live here regardless of which tree the source is in
+   * /sources/ — kernel source (/sources/linux-6.16.1) and some older leftover libblockdev artifacts
+Recurring Environment Gotchas (check these on every new package build)
+1. /usr/lib vs /usr/lib64 pkgconfig split: Many autotools packages install .pc files and .so files to /usr/lib/ instead of /usr/lib64/, and PKG_CONFIG_PATH/ldconfig don't see them there, causing false "not found" errors for packages that are actually already built. A symlink now exists: /usr/lib/pkgconfig -> /usr/lib64/pkgconfig (created 2026-07-08), so .pc files auto-resolve now regardless of which dir a package installs to. .so files still sometimes land in /usr/lib and need manual mv to /usr/lib64 + ldconfig for consistency (not strictly required for linking since /usr/lib is presumably still in the default linker search path, but do it anyway for cleanliness). Before concluding a dependency is "missing", always check both /usr/lib and /usr/lib64, and check if the source/build directory already exists under /root/blfs_build* — it may be built but never installed, or installed-but-invisible due to this exact issue.
+2. GObject Introspection: packages fail to build when introspection is enabled because Gio-2.0.gir can't be found. Always check --help / meson_options.txt for an introspection disable flag (-Dintrospection=false for meson, --enable-introspection=no or --disable-introspection for autotools) before building.
+3. SSL certs missing in this environment: use Python urllib with an unverified SSL context for all downloads:
+import urllib.request, ssl
+ctx = ssl.create_default_context()
+ctx.check_hostname = False
+ctx.verify_mode = ssl.CERT_NONE
+opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx))
+urllib.request.install_opener(opener)
+urllib.request.urlretrieve(url, filename)
+4. Multiple background build processes: when resuming a nohup ninja &-style background build across a session or after a VM restart, always check ps aux | grep ninja before launching a new one — accidentally launching several concurrent ninja instances against the same build directory happened once (2026-07-10) and drove memory to the edge of OOM (swap hit 600MB) before being caught and killed with pkill -9 ninja. One clean ninja process is enough; ninja/make are incremental and safe to resume from scratch after a kill.
+5. Power loss / hard VM stop can corrupt individual .o files silently: after a suspected improper shutdown (2026-07-10), ninja resumed cleanly overall but two .o files in the LLVM build had been partially written and had timestamps recent enough that ninja didn't consider them stale, producing undefined reference link errors. Fix pattern: identify the specific .o file(s) named in the linker error, rm them, and rerun ninja (it will detect they're missing and rebuild only those + relink). Don't assume the whole tree needs a clean rebuild unless multiple unrelated link errors keep appearing.
+Current Snapshot State (qcow2 internal snapshots)
+Check with qemu-img snapshot -l /home/eren/Belgeler/lfs/lfs.qcow2 on host. Full list as of 2026-07-10:
+ID
+	Tag
+	Notes
+	3
+	working-plasma6-2026-07-02
+	first working Plasma desktop
+	4
+	working-plasma6-with-apps-2026-07-04
+	+ Konsole/Kate
+	5
+	working-plasma6-pipewire-2026-07-04
+	+ PipeWire
+	6
+	pre-kernel-rebuild-2026-07-04
+	before kernel rebuild
+	7
+	working-new-kernel-nvme-amdgpu-2026-07-04
+	new kernel (NVMe+AMDGPU config, CONFIG_DM_CRYPT still NOT set) confirmed booting
+	8/9
+	pre-mesa-iris-rebuild-2026-07-04
+	before first (failed) iris attempt; taken twice by accident, harmless
+	10
+	mesa-virgl-clean-2026-07-07
+	Mesa cleanly rolled back to virgl-only after failed iris attempt — verified via disk .o symbol inspection, not just meson config
+	11
+	llvm-clang-installed-2026-07-08
+	LLVM/Clang 22.1.8 fully built + installed system-wide (/usr/bin/clang)
+	12
+	mesa-iris-radeonsi-real-gpu-2026-07-10
+	Mesa rebuilt with real iris+radeonsi GPU drivers — confirmed taken
+	13
+	vulkan-anv-radv-installed-2026-07-10
+	Vulkan drivers (anv Intel + radv AMD) built and installed, ray-tracing (GRL) disabled — see Phase A update below
+	14
+	dmcrypt-kernel-working-2026-07-10
+	New kernel with CONFIG_DM_CRYPT=y built, installed, boot-tested, and functionally verified (LUKS format/open/mkfs/mount/write all confirmed working) — see Phase B update below
+	Snapshot discipline: poweroff as root (not eren — polkit misconfigured, systemctl poweroff as normal user fails). Always confirm ps aux | grep qemu-system is empty on host before snapshotting or restoring. Restore with qemu-img snapshot -a <tag> lfs.qcow2 (VM must be fully shut down first).
+Major Fixes Already Applied (do not redo)
+Original bug: kwin_wayland segfaulted in an infinite crash loop on every login. Four root causes, all fixed:
+1. DRM permissions — eren wasn't in video group. Fixed: usermod -aG video eren.
+2. frameworkintegration — never built. Built via cmake/ninja.
+3. plasma-integration — never downloaded; shipped the actual fix (KDEPlasmaPlatformTheme6.so). Built with -DBUILD_QT5=OFF.
+4. polkit — never properly meson-installed. Rebuilt with -Dintrospection=false.
+Also fixed: PipeWire enabled as user service.
+Installed / Working
+* KDE Plasma 6 desktop — boots reliably.
+* Konsole, Kate.
+* PipeWire/WirePlumber.
+* LLVM/Clang 22.1.8 — full toolchain, system-installed (clang --version → clang version 22.1.8, InstalledDir: /usr/bin).
+* SPIRV-Headers, SPIRV-Tools, SPIRV-LLVM-Translator, libclc — full chain for GPU shader compilation, all installed.
+* Xwayland 24.1.6 — built and installed (/usr/bin/Xwayland); all build-time deps (libxcvt, pixman, wayland-protocols, font-util, xorg-server) were already present or trivially completed.
+* udisks2 2.10.1 with full LUKS/LVM crypto support — built, installed, running (systemctl status udisks2 → active, correctly enumerates block devices). Full dependency chain built from scratch: LVM2.2.03.41, cryptsetup-2.7.5, libaio-0.3.113, keyutils-1.6.3, libyaml-0.2.5 (yaml-0.1 pkgconfig name), popt-1.19, json-c-0.17, then libblockdev-3.2.1 reconfigured with --without-escrow --without-nvdimm --without-smart --enable-introspection=no to get Crypto plugin: yes / LVM plugin: yes.
+   * RESOLVED 2026-07-10: kernel CONFIG_DM_CRYPT is now set and functionally verified — see the dedicated kernel/DM_CRYPT writeup below. LUKS encryption now works end-to-end (userspace + kernel).
+* Mesa 24.3.4 with real iris (Intel) and radeonsi (AMD) Gallium drivers — see full writeup below, this was the major achievement of the 2026-07-08/10 session.
+* glslang 15.0.0 — built from source (GitHub tag 15.0.0), configured with -D ALLOW_EXTERNAL_SPIRV_TOOLS=ON -D BUILD_EXTERNAL=OFF to link against the already-installed system SPIRV-Tools rather than pulling its own copy. Provides /usr/bin/glslangValidator (symlink to glslang), a hard build dependency for Mesa's Vulkan drivers. Installed to /usr via ninja install.
+* Vulkan drivers: anv (Intel) + radv (AMD) — built on the same Mesa 24.3.4 tree as the iris/radeonsi work, via -Dvulkan-drivers=intel,amd. Ray-tracing (GRL, Intel's hardware RT kernel library) was disabled via -Dintel-rt=disabled due to LLVM 22 OpenCL-C header incompatibilities (work_group_reduce_*, atomic_*_explicit builtins missing/renamed in /usr/lib/clang/22/include/opencl-c.h — same root cause class as the iris/radeonsi LLVM-22-vs-Mesa-24.3.4 API drift documented below, just hitting the GPU-kernel-compile side instead of the driver C++ side this time). Base (non-RT) Vulkan support built and installed cleanly with zero patches needed — unlike iris/radeonsi, no source patching was required here. Installed: /usr/lib64/libvulkan_intel.so, /usr/lib64/libvulkan_radeon.so, ICD files at /usr/share/vulkan/icd.d/intel_icd.x86_64.json and radeon_icd.x86_64.json. As with iris/radeonsi, this VM only has virtio-gpu so no runtime effect is observable here — value is for real Intel/AMD hardware. Python ply module (via pip3 install ply --break-system-packages) was also needed as a build-time dependency for the (ultimately disabled) GRL kernel compiler path — harmless to leave installed.
+   * If ray-tracing is wanted later: would need the same style of source patching as clc_helpers.cpp/ac_llvm_helper.cpp — GRL's OpenCL kernels use OpenCL C 2.0 work_group_reduce_*/atomic_*_explicit builtins that LLVM 22's libclc/opencl-c.h either renamed or dropped. Not attempted; deferred indefinitely unless specifically requested.
+Phase A Status: LLVM/Clang → Mesa Real GPU Drivers — COMPLETE (as of 2026-07-10)
+This was the deferred "own dedicated session" item from the previous continuation prompt. Full summary of what was done, in order:
+1. LLVM/Clang 22.1.8 build
+* Source: llvm-project-22.1.8.src.tar.xz (official GitHub release tarball, ~167MB) extracted to /root/blfs_build_llvm/llvm-project-22.1.8.src/.
+* CMake config used:
+CC=gcc CXX=g++ cmake -G Ninja \
+  -D CMAKE_INSTALL_PREFIX=/usr -D CMAKE_BUILD_TYPE=Release \
+  -D LLVM_ENABLE_FFI=ON -D LLVM_BUILD_LLVM_DYLIB=ON -D LLVM_LINK_LLVM_DYLIB=ON \
+  -D LLVM_ENABLE_RTTI=ON -D LLVM_TARGETS_TO_BUILD="host;AMDGPU" \
+  -D LLVM_ENABLE_PROJECTS=clang -D LLVM_ENABLE_RUNTIMES=compiler-rt \
+  -D LLVM_BINUTILS_INCDIR=/usr/include \
+  -D LLVM_INCLUDE_BENCHMARKS=OFF -D LLVM_INCLUDE_TESTS=OFF \
+  -Wno-dev ../llvm
+host;AMDGPU targets are sufficient — host=X86 covers intel_clc/iris, AMDGPU covers radeonsi. No other backends needed.
+* Built with nohup ninja -j2 in background (4450 total ninja targets). Took most of a day of wall-clock time across two sessions (survived a VM restart cleanly via ninja's incremental resume; also survived — with manual .o file cleanup — a suspected improper shutdown that corrupted two .o files, see gotcha #5 above).
+* ninja install completed cleanly. System-wide clang --version confirms 22.1.8.
+2. SPIRV chain + libclc
+* SPIRV-Headers (vulkan-sdk-1.4.350.1 tag) — header-only, installed via cmake in seconds.
+* SPIRV-Tools (same tag) — built against SPIRV-Headers, ~0.6 SBU.
+* SPIRV-LLVM-Translator (v22.1.2 tag, matches LLVM 22.1.x) — built against LLVM+SPIRV-Tools, produces /usr/bin/llvm-spirv and libLLVMSPIRVLib.so.
+* libclc — as of LLVM 22, no longer ships as a separate tarball; it's a subdirectory (libclc/) inside the main llvm-project monorepo. Built directly from /root/blfs_build_llvm/llvm-project-22.1.8.src/libclc/ with a fresh build/ dir, standard cmake+ninja. Installed to /usr/share/clc/ (spirv-mesa3d-.spv, spirv64-mesa3d-.spv — exactly what Mesa's iris/radeonsi need). One harmless warning about missing nvptx64-nvidia-cuda target (expected, we didn't build NVPTX since no NVIDIA target needed).
+3. Mesa rebuild with iris+radeonsi — required source patching
+* meson configure -Dgallium-drivers=iris,radeonsi,virgl,softpipe -Dintel-clc=auto -Dvulkan-drivers= succeeded and correctly detected libclc found: YES, LLVM Enabled: YES / Version 22.1.8.
+* However, the actual ninja build failed with real compile errors in src/compiler/clc/clc_helpers.cpp and src/amd/llvm/ac_llvm_helper.cpp. Root cause: Mesa 24.3.4's C++ code that talks directly to LLVM/Clang's C++ APIs predates several breaking API changes introduced in LLVM 21 and 22. This is a confirmed, still-open upstream issue — Mesa's own 25.2.0 release notes list "FTBFS (LLVM 21): clc_helpers.cpp:867:60: error: 'std::shared_ptrclang::TargetOptions clang::CompilerInvocationBase::TargetOpts' is protected" as an unresolved bug. We are on LLVM 22 (even more removed APIs) with the older Mesa 24.3.4 (older code), i.e. a worse version of a problem upstream hasn't even fully solved yet for LLVM 21.
+* Five source patches were required and applied successfully (all in src/compiler/clc/clc_helpers.cpp except the last):
+   1. target->createTargetMachine(triple, ...) → wrap triple in ::llvm::Triple(triple) (LLVM 22 requires a Triple object, not a raw string, at this call site — the TargetRegistry::lookupTarget() call itself still accepts a string, only createTargetMachine changed).
+   2. clang::DiagnosticsEngine diag { new clang::DiagnosticIDs, new clang::DiagnosticOptions, new clang::TextDiagnosticPrinter(diag_log_stream, &c->getDiagnosticOpts()) } → restructured to construct a named clang::DiagnosticOptions diagOpts; local and pass it by reference (not new'd pointer) to both DiagnosticsEngine and TextDiagnosticPrinter, since both constructors changed from pointer/IntrusiveRefCntPtr params to plain reference params.
+   3. Second TextDiagnosticPrinter construction (inside c->createDiagnostics(...)) — same fix, drop the & since it now wants DiagnosticOptions& not DiagnosticOptions*.
+   4. c->getInvocation().TargetOpts (direct protected member access) → c->getInvocation().getTargetOpts() (public accessor, returns the needed TargetOptions&).
+   5. Driver::GetResourcesPath(...) — this function was completely removed in LLVM 22 (existed through LLVM 21). No direct replacement exists. Fix: added a new #if LLVM_VERSION_MAJOR >= 22 branch that hardcodes the resource path as std::string("/usr/lib/clang/22") (confirmed via ls /usr/lib/clang/ — this is where our clang install actually put its resource dir; this hardcoded path will need updating if/when LLVM is ever upgraded past 22.x).
+   6. Separately, in src/amd/llvm/ac_llvm_helper.cpp: unwrap(module)->setTargetTriple(TM->getTargetTriple().getTriple()) → unwrap(module)->setTargetTriple(TM->getTargetTriple()) (the .getTriple() call was converting an already-correct Triple object into a raw string, which the new setTargetTriple(Triple) signature (LLVM 22) rejects — just removing the extra conversion fixed it).
+* All patches were applied via a single Python script using exact string matching with assert guards (not blind sed regex) specifically to avoid silently patching the wrong location — this approach worked cleanly and is recommended for any future similar patching.
+* After all 6 fixes, ninja completed 880/880 targets with exit 0, zero errors (one harmless deprecation warning remains, TargetRegistry::lookupTarget's string-based overload — not worth chasing further since createTargetMachine was the actually-broken part).
+* ninja install completed cleanly. Verified via readelf -sW /usr/lib64/dri/libdril_dri.so | grep -i driverGetExtensions showing both __driDriverGetExtensions_iris and __driDriverGetExtensions_radeonsi present in the installed megadriver blob, with iris_dri.so / radeonsi_dri.so symlinks pointing to it (same pattern as the pre-existing virgl/swrast symlinks).
+* Note: this VM only has virtio-gpu (QEMU's paravirtual GPU), so no visual/behavioral change is expected or observable inside this VM — virgl will keep being what's actually used here. The value of this work is that atasOS now has real Intel/AMD GPU driver support ready for when it runs on actual hardware (relevant for Phase C below). If a fresh Mesa checkout/upgrade is ever done in the future, these same 6 patches (or their then-current equivalents) will likely need reapplying, or a Mesa version explicitly compatible with LLVM 22 (BLFS's current tracked book pairs LLVM-22.1.8 with Mesa-26.1.3, not our 24.3.4) could be adopted instead to sidestep this entirely.
+Phase B Update: Kernel Rebuild for CONFIG_DM_CRYPT — COMPLETE (as of 2026-07-10)
+* Approach: copied the running kernel's config (/boot/config-6.16.1, more complete/current than the stale .config sitting in /sources/linux-6.16.1) over the source tree's .config, then make olddefconfig (no changes needed — trees were in sync), then scripts/config --enable CONFIG_DM_CRYPT, then re-ran make olddefconfig to pull in newly-implied options.
+* Also had to explicitly enable CONFIG_CRYPTO_XTS — it was NOT auto-selected by CONFIG_DM_CRYPT=y despite being required for LUKS's default aes-xts-plain64 cipher. CONFIG_CRYPTO_AES, CONFIG_CRYPTO_CBC, CONFIG_CRYPTO_ESSIV, CONFIG_CRYPTO_SHA256 were already present. If ever doing a from-scratch kernel config again, explicitly check for CONFIG_CRYPTO_XTS — don't assume it comes free with DM_CRYPT.
+* Build was fast (make -j2, background via nohup) — this was an incremental config-only change on an already-built tree, not a from-scratch kernel build, so it completed in well under the time budgeted.
+* Install pattern used (matches the existing convention from the NVMe/AMDGPU kernel, snapshot 7): new kernel installed alongside existing kernels, not replacing them — cp bzImage/System.map/.config to /boot/vmlinuz-6.16.1-dmcrypt / System.map-6.16.1-dmcrypt / config-6.16.1-dmcrypt, then a new menuentry appended to /boot/grub/grub.cfg (hand-edited file, not grub-mkconfig-generated — this system's grub.cfg is fully manual).
+* GRUB gotcha discovered: /boot/grub/grub.cfg had no serial/terminal_input/terminal_output directives, so the GRUB menu itself was never visible over the -serial stdio QEMU console (only kernel output was, via the console=ttyS0 kernel param) — the menu was rendering to a VGA output nobody was looking at (-vga none in the boot command). Fixed by prepending these three lines to the top of grub.cfg:
+serial --unit=0 --speed=115200
+terminal_input serial
+terminal_output serial
+This is now a permanent fix in grub.cfg and should persist for all future boots/kernels — no need to redo this. Worth remembering for Phase D (installability/GRUB) work later, since a fresh GRUB install there will need the same directives.
+* Verification performed (full stack, not just build success):
+   1. Booted the new kernel via the GRUB menu (confirmed via cat /proc/cmdline showing BOOT_IMAGE=/boot/vmlinuz-6.16.1-dmcrypt and uname -a showing today's build timestamp).
+   2. modprobe dm_crypt → exit 0 (DM_CRYPT is built-in, not a module, so this is a no-op success, not proof by itself).
+   3. Created a 100MB test file, cryptsetup luksFormat → succeeded, cryptsetup luksDump confirmed a valid LUKS2 header (aes-xts-plain64, argon2id KDF).
+   4. cryptsetup luksOpen → succeeded, /dev/mapper/test_luks appeared, confirmed via kernel log (loop0: detected capacity change) that dm_crypt was actually invoked at runtime.
+   5. mkfs.ext4 on the mapped device, mount, wrote and read back a test file, df -h showed correct sizing. Full teardown (umount, luksClose, cleanup) also succeeded cleanly.
+   * This is a genuine end-to-end confirmation, not just a config-bit check — LUKS/dm-crypt is now fully functional on atasOS.
+* GRUB default changed: set default=0 → set default=2 in grub.cfg, making the new DM_CRYPT kernel (3rd menuentry, 0-indexed) the default boot target going forward, since it's a superset of the working NVMe/AMDGPU kernel's config plus DM_CRYPT. The two older kernels (vmlinuz-6.16.1-lfs, vmlinuz-6.16.1-nvme-amdgpu) remain in /boot and in the GRUB menu as fallbacks, untouched.
+User's stated goal: "the most advanced system possible" (en gelişmiş sistem), not a minimal/quick distro. Expected to take weeks/months of incremental sessions.
+* Phase A (graphics) — COMPLETE (base, non-RT scope): LLVM/Clang ✅ → Mesa real GPU drivers (iris, radeonsi) ✅ → Vulkan drivers (anv, radv) ✅ (ray-tracing/GRL deliberately disabled, see above — would need its own patch session if ever wanted).
+* Phase B (desktop completeness) — PARTIALLY COMPLETE: Xwayland ✅, udisks2 full crypto support ✅ (userspace + kernel CONFIG_DM_CRYPT both done and functionally verified as of 2026-07-10), audio hardware/codec breadth — not started, a real browser — not started (this remains the single largest unknown-risk item in the whole roadmap; Firefox/Chromium from source on a 4-core/3.8GB VM could easily be the longest single task in the entire project — budget multiple days for it alone when attempted).
+* Phase C (real hardware breadth) — not started: WiFi/Bluetooth/more storage controllers in kernel, linux-firmware package. Blocked on a decision: target hardware hasn't been identified yet, and linux-firmware upstream is now a large git-based repo where BLFS explicitly recommends not blindly installing everything — selective per-device firmware only, driven by lspci/lsusb output from the actual target machine. Don't start this without first deciding what hardware atasOS is meant to run on.
+* Phase D (installability) — not started: GRUB BIOS+UEFI, live-boot/squashfs image, Calamares-based installer.
+* Phase E (polish) — not started: package management, update mechanism, default theming/first-run experience.
+Recommended Next Session Starting Point
+1. Verify environment: free -h && swapon --show (activate swap if needed — see gotcha above), ps aux | grep qemu-system on host should be empty before any snapshot/restore work, clang --version should show 22.1.8, glslangValidator --version should show 15.0.0, uname -a after boot should show the dmcrypt kernel is default now.
+2. Confirm the dmcrypt-kernel-working-2026-07-10 snapshot (ID 14) is present — it is, confirmed 2026-07-10.
+3. Natural next steps, in rough priority order (no strong recommendation yet — revisit with user):
+   * Audio hardware/codec breadth (Phase B) — not yet scoped in detail, needs research at the start of whatever session tackles it. Likely next pick since kernel/graphics work is now largely done.
+   * Browser (Phase B) — biggest single remaining risk/time item; needs its own dedicated multi-day session(s) when tackled, same caution level as LLVM was.
+   * Phase C hardware decision — needs a conversation with the user about what physical hardware atasOS should target before any firmware/driver work makes sense.
+   * Ray-tracing (GRL) patching — optional, deferred; only pick up if specifically wanted, needs OpenCL-C builtin compatibility patches for LLVM 22.
+   * Phase D (installability) — GRUB BIOS+UEFI, live-boot/squashfs, Calamares installer — not started, but the GRUB serial-console fix from this session (see Phase B writeup) is directly relevant groundwork.
+Working Style Notes
+* User prefers step-by-step guidance and minimal/targeted changes over broad rewrites.
+* User communicates concisely, sometimes in Turkish; terminal output is often in Turkish (e.g. "toplam" = total, "bulunamadı" = not found, "hata" = error, "uyarı" = warning).
+* Always verify which terminal (host vs. guest) a command should run in before running it.
+* When a configure/meson check fails with a hard error and no disable-flag exists, check whether it's actually optional deep in the source before assuming it's mandatory — but confirm via the actual meson.build logic (grep for the option/variable name and trace its usage) before attempting hand-patching. Hand-patching upstream C++ source against a genuine upstream-unresolved API-compat issue did end up being necessary and successful this session (see Mesa/LLVM-22 patches above), but only after confirming via web research that this was a known, real, multi-point issue rather than a simple config mistake — don't jump straight to patching without that confirmation first.
+* Use exact-string-match Python patching (with assert guards) rather than blind regex sed for any multi-line or context-sensitive source patch — this worked reliably this session.
+* Background builds: always launch with nohup ... & echo "PID: $!" && disown, and always check ps aux | grep <toolname> before launching a new one to avoid duplicate concurrent processes (see gotcha #4).

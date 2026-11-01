@@ -105,5 +105,6 @@ python -m pytest tests/ -q
 
 ## atasOS build history
 
-The phase info logs from building atasOS itself (LFS fixes, live ISO +
-Calamares installer, atspkg) are in [docs/](docs/README.md).
+The phase info logs and session handoffs from building atasOS itself (desktop,
+graphics stack, Firefox, LFS fixes, live ISO + Calamares installer, atspkg) are
+in [docs/](docs/README.md).
