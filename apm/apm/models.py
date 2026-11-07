@@ -7,7 +7,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Iterable
 
-_OPS = ("==", ">=", "<=", "!=", ">", "<")
+# "=" last: it is a substring of the two-character operators.
+_OPS = ("==", ">=", "<=", "!=", ">", "<", "=")
 _SEG = re.compile(r"(\d+|[a-zA-Z]+)")
 
 
@@ -31,13 +32,19 @@ def version_compare(a: str, b: str) -> int:
 
     Unequal lengths are decided by what the longer one has next: an extra
     numeric segment means a later release (1.0.1 > 1.0), an extra alphabetic
-    segment means a prerelease (1.0 > 1.0rc1).
+    segment means a prerelease (1.0 > 1.0rc1). Trailing zero segments are
+    ignored, so 1.3 == 1.3.0 and ``zlib==1.3`` accepts 1.3.0.
     """
     sa, sb = _segments(a), _segments(b)
+    zero = (1, 0, "")
     for i in range(max(len(sa), len(sb))):
         if i >= len(sa):
+            if sb[i] == zero:
+                continue
             return 1 if sb[i][0] == 0 else -1
         if i >= len(sb):
+            if sa[i] == zero:
+                continue
             return -1 if sa[i][0] == 0 else 1
         if sa[i] != sb[i]:
             return 1 if sa[i] > sb[i] else -1
@@ -62,7 +69,8 @@ class Constraint:
         for op in _OPS:
             idx = text.find(op)
             if idx > 0:
-                return cls(text[:idx].strip(), op, text[idx + len(op):].strip())
+                return cls(text[:idx].strip(), "==" if op == "=" else op,
+                           text[idx + len(op):].strip())
         return cls(text)
 
     def satisfied_by(self, version: str) -> bool:

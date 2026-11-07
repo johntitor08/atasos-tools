@@ -48,14 +48,15 @@ def cmd_install(args) -> int:
     if args.dry_run:
         return 0
 
-    tx = Transaction(db, args.root)
-    for pkg in resolution.install_order:
-        path = os.path.join(args.pkg_dir, pkg.filename)
-        try:
-            files = tx.install(pkg, path)
-        except TransactionError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 1
+    tx = Transaction(db, args.root, overwrite=args.overwrite, force=args.force,
+                     require_checksum=not args.allow_unverified)
+    items = [(pkg, os.path.join(args.pkg_dir, pkg.filename)) for pkg in resolution.install_order]
+    try:
+        results = tx.install_many(items)
+    except TransactionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for pkg, files in zip(resolution.install_order, results):
         print(f"installed {pkg.id} ({len(files)} files)")
     return 0
 
@@ -127,6 +128,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--root", default="/", help="install root (for chroot/VM testing)")
     p.add_argument("--pkg-dir", default=".", help="directory holding the .apkg files")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--overwrite", action="store_true",
+                   help="replace files already on disk that no package owns")
+    p.add_argument("--force", action="store_true",
+                   help="take over files owned by another package")
+    p.add_argument("--allow-unverified", action="store_true",
+                   help="install packages whose index entry has no sha256")
     p.set_defaults(func=cmd_install)
 
     p = sub.add_parser("remove", help="remove an installed package")

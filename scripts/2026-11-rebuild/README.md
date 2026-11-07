@@ -33,8 +33,9 @@ original laptop; read a script before running it anywhere else.
 | 58 | Kernel 6.16.1-atas6: AMD (amdgpu, radeon), NVIDIA (nouveau), VM display drivers, AMD laptop support, MediaTek/Realtek Wi-Fi, UAS, `/proc/config.gz` |
 | 59 | Desktop: atasOS wallpaper (also the Plasma and look-and-feel default), Breeze Dark with the atasOS blue accent, panel logo and launchers, GRUB theme, login theme update, touchpad tap-to-click |
 | 60 | **v31 live ISO** builder (v30 + atas6 + desktop theme; live system can also boot from an ISO file on a disk partition with `atasos.iso=`, installer disabled in that mode; adds a Kubuntu GRUB entry for it) |
-| 62 | **v32 live ISO** builder: v31 with the Plasma Wayland session hidden on the login screen (it does not start on atasOS, and SDDM preselected it for new users) |
 | 61 | Write the newest ISO to a USB stick (USB disks only, typed device name + confirmation, checksum before and read-back after) |
+| 62 | **v32 live ISO** builder: v31 with the Plasma Wayland session hidden on the login screen (it does not start on atasOS, and SDDM preselected it for new users) |
+| 63 | Upload the newest ISO to the archive.org item `atasos-live` (resumable, `--retries 10`), verify the download URL (HTTP 200, exact size, `.sha256`), then ask one by one whether to delete older ISOs |
 
 ## Installer disk safety
 

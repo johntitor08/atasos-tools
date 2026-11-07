@@ -5,7 +5,8 @@ a Linux distribution built from source. Philosophically close to XBPS/pacman:
 a simple tarball package format, a real dependency resolver, and removal driven
 by a recorded file list rather than guesswork.
 
-15 tests, no third-party runtime dependencies.
+24 tests. No Python dependencies; packages are zstd-compressed, so it needs either
+the `zstd` binary or the optional `zstandard` module (`pip install .[zstd]`).
 
 ## Layout
 
@@ -15,7 +16,8 @@ apm/
   resolver.py     greedy + backtracking dependency resolution
   repo.py         repo index (index.json), installed DB (installed.json)
   archive.py      zstd tar handling (module, or the zstd binary as fallback)
-  transaction.py  .apkg install/remove, sha256 verification, symlink-safe copy
+  transaction.py  .apkg install/remove: sha256, file-ownership conflicts,
+                  upgrades, all-or-nothing rollback, symlink-safe copy
   mkpkg.py        DESTDIR staging tree -> .apkg
   cli.py          apm sync / search / install / remove / list / info
 tests/
@@ -40,12 +42,17 @@ package owns and nothing else.
 ## Usage
 
 ```bash
+pip install .            # puts `apm` and `apm-mkpkg` on PATH
 apm sync --index /path/to/index.json
 apm search zlib
 apm install curl --pkg-dir ./pkgs
 
 # install into a separate root, for chroot/VM testing
 apm install curl --root /tmp/test-root --pkg-dir ./pkgs
+
+apm install foo --overwrite   # replace files on disk that no package owns
+apm install foo --force       # take over files another package owns
+apm install foo --allow-unverified   # index entry has no sha256
 
 apm remove zlib          # blocked if another package depends on it
 apm remove zlib --force
@@ -90,6 +97,27 @@ raises; backtracking finds it.
 SONAME chain. Every copy in `transaction.py` uses `follow_symlinks=False`, and
 `test_install_preserves_symlinks_not_copies` guards against a regression.
 
+## Transactions
+
+`apm install` checks the whole batch before writing anything: every archive
+must exist and match its sha256 (an index entry without one is refused), and
+no path may collide with a file another package owns, with a file already on
+disk that no package owns, or with a directory. Collisions are listed together.
+
+Every file that gets replaced is first renamed aside (`*.apm-bak-<pid>` in the
+same directory, so it is a rename, not a copy). If anything fails, every
+package of the batch is rolled back: new files deleted, the originals renamed
+back, created directories removed, the database restored. On success the
+backups are deleted.
+
+Installing a newer version over an installed one deletes the files the old
+version owned that the new one no longer ships. `remove` never deletes a file
+that another package also lists (possible after `--force`).
+
+Archives are unpacked with tarfile's safety checks (nothing may land outside
+the staging directory, also not through a symlink unpacked earlier), but file
+modes are kept as packaged, so setuid binaries and sticky directories survive.
+
 ## Not implemented (on purpose)
 
 - GPG/signature verification — only sha256 today
@@ -111,5 +139,5 @@ in [docs/](docs/README.md).
 
 The October–November 2026 rebuild (after the v21–v28 ISOs were lost) is in
 [scripts/2026-11-rebuild/](scripts/2026-11-rebuild/README.md): the scripts that
-rebuilt the system, the kernels, and the v29/v30 live ISO builders. The logo,
+rebuilt the system, the kernels, and the v29–v32 live ISO builders. The logo,
 login theme, installer slideshow and HiDPI script are in [branding/](branding/README.md).

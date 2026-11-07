@@ -101,18 +101,28 @@ class InstalledDB:
     def files_of(self, name: str) -> list[str]:
         return self.entries.get(name, {}).get("files", [])
 
+    def owners(self, exclude: str | None = None) -> dict[str, str]:
+        """Map every owned path to the package that owns it."""
+        out: dict[str, str] = {}
+        for name, entry in self.entries.items():
+            if name == exclude:
+                continue
+            for rel in entry.get("files", []):
+                out.setdefault(rel, name)
+        return out
+
     def as_packages(self) -> dict[str, Package]:
         return {name: Package.from_dict(e) for name, e in self.entries.items()}
 
     def dependents_of(self, name: str) -> list[str]:
         """Which installed packages still depend on this one."""
+        from .models import Constraint
+
         out = []
         for other, entry in self.entries.items():
             if other == name:
                 continue
             for dep in entry.get("depends", []):
-                from .models import Constraint
-
                 if Constraint.parse(dep).name == name:
                     out.append(other)
                     break
