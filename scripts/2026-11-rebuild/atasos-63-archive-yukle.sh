@@ -77,12 +77,13 @@ echo "########## 5/5  ESKI ISO'LAR ##########"
 if [ ${#ESKI[@]} -eq 0 ]; then
     echo "  item'da baska ISO yok."
 else
-    echo "  Silinen dosya archive.org'da history/ altinda yedek kalir ama indirme adresi 404 olur."
+    # --no-backup: silinen dosya history/ altina tasinmaz, KALICI silinir (v13-v15'te history'ye tasinip yer kaplamaya devam etmisti)
+    echo "  Silinen dosya KALICI olarak silinir (history/ yedegi tutulmaz, geri alinamaz)."
     for f in "${ESKI[@]}"; do
         read -r -p "  $f (+ .sha256) silinsin mi? 'evet' yaz, baska her sey = birak: " C
         if [ "$C" = "evet" ]; then
             S=("$f"); "$IA" list "$ITEM" 2>/dev/null | grep -qx "$f.sha256" && S+=("$f.sha256")
-            "$IA" delete "$ITEM" "${S[@]}" && echo "    silindi: ${S[*]}" || echo "    HATA: silinemedi: ${S[*]}"
+            "$IA" delete "$ITEM" --no-backup "${S[@]}" && echo "    silindi: ${S[*]}" || echo "    HATA: silinemedi: ${S[*]}"
         else
             echo "    birakildi: $f"
         fi
