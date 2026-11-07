@@ -1,0 +1,9 @@
+{
+    "KPlugin": {
+        "Authors": [ { "Name": "atasOS" } ],
+        "Id": "atasOS",
+        "License": "CC-BY-SA-4.0",
+        "Name": "atasOS",
+        "Name[tr]": "atasOS Zirve"
+    }
+}

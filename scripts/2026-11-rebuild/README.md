@@ -30,6 +30,10 @@ original laptop; read a script before running it anywhere else.
 | 49–55 | Python ctypes, Firefox/cursor/login-screen scaling, single GRUB entry, menu icon and language fixes |
 | 56 | Branding and desktop improvements: logo, SDDM theme with Turkish on-screen keyboard, automatic HiDPI scaling |
 | 57 | **v30 live ISO** builder (v29 + Calamares removed after install, sudo for the installed user, fixes found in VM testing) |
+| 58 | Kernel 6.16.1-atas6: AMD (amdgpu, radeon), NVIDIA (nouveau), VM display drivers, AMD laptop support, MediaTek/Realtek Wi-Fi, UAS, `/proc/config.gz` |
+| 59 | Desktop: atasOS wallpaper (also the Plasma and look-and-feel default), Breeze Dark with the atasOS blue accent, panel logo and launchers, GRUB theme, login theme update, touchpad tap-to-click |
+| 60 | **v31 live ISO** builder (v30 + atas6 + desktop theme; live system can also boot from an ISO file on a disk partition with `atasos.iso=`, installer disabled in that mode; adds a Kubuntu GRUB entry for it) |
+| 61 | Write the newest ISO to a USB stick (USB disks only, typed device name + confirmation, checksum before and read-back after) |
 
 ## Installer disk safety
 

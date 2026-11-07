@@ -1,0 +1,51 @@
+# atasOS GRUB temasi
+title-text: ""
+desktop-image: "background.png"
+desktop-image-scale-method: "crop"
+desktop-color: "#07111d"
+terminal-font: "DejaVu Sans Regular 16"
+terminal-box: "terminal_box_*.png"
+
++ label {
+    top = 44%
+    left = 0
+    width = 100%
+    height = 40
+    align = "center"
+    text = "atasOS"
+    font = "DejaVu Sans Bold 32"
+    color = "#ffffff"
+}
+
++ boot_menu {
+    left = 8%
+    width = 84%
+    top = 52%
+    height = 34%
+    item_font = "DejaVu Sans Regular 24"
+    selected_item_font = "DejaVu Sans Bold 24"
+    item_color = "#c8d8ea"
+    selected_item_color = "#ffffff"
+    item_height = 44
+    item_padding = 14
+    item_spacing = 6
+    icon_width = 0
+    icon_height = 0
+    item_icon_space = 0
+    selected_item_pixmap_style = "select_*.png"
+    scrollbar = false
+}
+
++ progress_bar {
+    id = "__timeout__"
+    left = 25%
+    width = 50%
+    top = 90%
+    height = 24
+    font = "DejaVu Sans Regular 16"
+    text = "@TIMEOUT_NOTIFICATION_SHORT@"
+    text_color = "#c8d8ea"
+    fg_color = "#3daee9"
+    bg_color = "#0c2238"
+    border_color = "#3daee9"
+}

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3200" height="2000" viewBox="0 0 3200 2000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="gok" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#07111d"/>
+      <stop offset="0.55" stop-color="#0f2a47"/>
+      <stop offset="1" stop-color="#1b4f8a"/>
+    </linearGradient>
+    <radialGradient id="isik" cx="1600" cy="560" r="1100" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3daee9" stop-opacity="0.55"/>
+      <stop offset="0.35" stop-color="#3daee9" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#3daee9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="dag1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16395f"/><stop offset="1" stop-color="#0c2238"/>
+    </linearGradient>
+    <linearGradient id="dag2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e2740"/><stop offset="1" stop-color="#081726"/>
+    </linearGradient>
+  </defs>
+  <rect width="3200" height="2000" fill="url(#gok)"/>
+  <rect width="3200" height="2000" fill="url(#isik)"/>
+  <!-- yildizlar -->
+  <g fill="#ffffff">
+    <circle cx="420" cy="220" r="2.2" opacity="0.7"/><circle cx="760" cy="410" r="1.6" opacity="0.5"/>
+    <circle cx="1130" cy="160" r="2" opacity="0.6"/><circle cx="2050" cy="250" r="1.8" opacity="0.55"/>
+    <circle cx="2480" cy="120" r="2.4" opacity="0.7"/><circle cx="2830" cy="380" r="1.6" opacity="0.5"/>
+    <circle cx="300" cy="620" r="1.4" opacity="0.4"/><circle cx="2950" cy="700" r="1.5" opacity="0.4"/>
+    <circle cx="1820" cy="90" r="1.4" opacity="0.45"/><circle cx="1400" cy="470" r="1.3" opacity="0.35"/>
+  </g>
+  <!-- ufuk yayi -->
+  <path d="M-200 1250 Q1600 900 3400 1250" fill="none" stroke="#3daee9" stroke-opacity="0.35" stroke-width="10"/>
+  <!-- dogan gunes -->
+  <circle cx="1600" cy="500" r="58" fill="#ffffff" opacity="0.95"/>
+  <circle cx="1600" cy="500" r="120" fill="#ffffff" opacity="0.10"/><circle cx="1600" cy="500" r="220" fill="#3daee9" opacity="0.10"/>
+  <!-- arka daglar -->
+  <path d="M0 1500 L420 1180 L700 1360 L1100 980 L1600 610 L2100 980 L2500 1360 L2780 1180 L3200 1500 L3200 2000 L0 2000 Z" fill="url(#dag1)"/>
+  <!-- zirve: logodaki A -->
+  <path d="M1180 1700 L1600 700 L2020 1700" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- on daglar -->
+  <path d="M0 1720 L380 1480 L760 1650 L1200 1390 L1600 1600 L2000 1390 L2440 1650 L2820 1480 L3200 1720 L3200 2000 L0 2000 Z" fill="url(#dag2)"/>
+</svg>

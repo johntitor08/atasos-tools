@@ -24,6 +24,16 @@ Rectangle {
         GradientStop { position: 1.0; color: "#1b4f8a" }
     }
 
+    // atasOS duvar kagidi + okunabilirlik icin koyu ortu (resim yoksa yalniz gradyan kalir)
+    Image {
+        anchors.fill: parent
+        source: "background.jpg"
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: false
+        smooth: true
+    }
+    Rectangle { anchors.fill: parent; color: "#07111d"; opacity: 0.35 }
+
     Component.onCompleted: {
         VirtualKeyboardSettings.locale = "tr_TR"
         VirtualKeyboardSettings.activeLocales = ["tr_TR", "en_US"]
@@ -77,13 +87,6 @@ Rectangle {
         spacing: 14 * s
         Behavior on y { NumberAnimation { duration: 150 } }
 
-        Image {
-            anchors.horizontalCenter: parent.horizontalCenter
-            source: "logo.png"
-            width: 88 * s; height: width
-            sourceSize.width: 256; sourceSize.height: 256
-            smooth: true
-        }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "atasOS"; color: "white"
