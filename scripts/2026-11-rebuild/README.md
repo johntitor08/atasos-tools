@@ -1,0 +1,39 @@
+# atasOS rebuild scripts (October–November 2026)
+
+The v21–v28 ISOs were lost when a CachyOS installer erased the disk that held
+them. These scripts rebuilt atasOS on its partition (`/dev/nvme0n1p5`, LFS 12.3 +
+KDE Plasma 6) from a Kubuntu host, then produced the v29 and v30 live ISOs.
+
+They are kept as they were run. Paths, partition numbers and UUIDs refer to the
+original laptop; read a script before running it anywhere else.
+
+## Conventions
+
+- Every script runs as root from the host: `sudo bash atasos-NN-*.sh`.
+- They mount p5 at `/mnt/atasos`, take a shared lock (`/run/atasos-betik.lock`) so
+  two scripts never run at once, and unmount on exit.
+- Files they change are copied first to `/var/lib/atasos-paketler/yedek-NN-<date>/`
+  (or a `.yedek-<date>` file next to the original).
+- Messages are in Turkish (ASCII only, so they read correctly on any console).
+
+## Main steps
+
+| Scripts | What they do |
+|---------|--------------|
+| 6–19 | First boot to SDDM, polkit, groups, module loading, X wrapper |
+| 20–29 | Firefox + Mesa iris, GTK3 chain, Wi-Fi (wpa_supplicant), GRUB gfxpayload |
+| 30–39 | EFI entries, libGL, DNS (systemd-resolved), audio, panel shortcuts, base tools |
+| 40–43 | KAuth with the polkit backend (brightness), transplant of groups B2 and C from the v20 ISO (Calamares, GRUB tools) |
+| 44 | **v29 live ISO** builder (overlay over p5, squashfs zstd, busybox initramfs, grub-mkrescue BIOS+UEFI) |
+| 45, 48 | Kernels 6.16.1-atas4 and -atas5 (HDMI audio, camera, Huawei WMI, thermal, FUSE, Intel PMC) |
+| 46–47 | os-prober 1.85, libfuse 3, grub-mount (installer lists other operating systems) |
+| 49–55 | Python ctypes, Firefox/cursor/login-screen scaling, single GRUB entry, menu icon and language fixes |
+| 56 | Branding and desktop improvements: logo, SDDM theme with Turkish on-screen keyboard, automatic HiDPI scaling |
+| 57 | **v30 live ISO** builder (v29 + Calamares removed after install, sudo for the installed user, fixes found in VM testing) |
+
+## Installer disk safety
+
+The CachyOS incident is why the ISO builders force
+`initialPartitioningChoice: none` (no partitioning option is preselected) and
+`prompt-install: true` (a final confirmation before anything is written), and
+check both before producing an ISO.

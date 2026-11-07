@@ -1,0 +1,12 @@
+[SddmGreeterTheme]
+Name=atasOS
+Description=atasOS giris ekrani (ekran klavyesi, otomatik olcek)
+Author=atasOS
+License=GPL
+Type=sddm-theme
+Version=2.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=atasOS
+Theme-API=2.0
+QtVersion=6

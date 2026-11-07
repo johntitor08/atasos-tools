@@ -108,3 +108,8 @@ python -m pytest tests/ -q
 The phase info logs and session handoffs from building atasOS itself (desktop,
 graphics stack, Firefox, LFS fixes, live ISO + Calamares installer, atspkg) are
 in [docs/](docs/README.md).
+
+The October–November 2026 rebuild (after the v21–v28 ISOs were lost) is in
+[scripts/2026-11-rebuild/](scripts/2026-11-rebuild/README.md): the scripts that
+rebuilt the system, the kernels, and the v29/v30 live ISO builders. The logo,
+login theme, installer slideshow and HiDPI script are in [branding/](branding/README.md).
