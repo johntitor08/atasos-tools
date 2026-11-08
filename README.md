@@ -2,10 +2,10 @@
 
 > **atasOS** — Linux From Scratch 12.3 tabanlı, KDE Plasma 6 masaüstlü Türkçe dağıtım.
 >
-> - **ISO indir (v32):** <https://archive.org/download/atasos-live/atasos-live-v32.iso>
+> - **ISO indir (v33):** <https://archive.org/download/atasos-live/atasos-live-v33.iso>
 >   ([sayfa](https://archive.org/details/atasos-live), [sha256](#download))
 > - **Rehber (indirme, kurulum, kullanım, bilinen sorunlar):** [docs/REHBER.md](docs/REHBER.md)
-> - **Kaynak kod:** <https://github.com/johntitor08/atasos-tools/releases/tag/v32-kaynak>
+> - **Kaynak kod:** [v32-kaynak](https://github.com/johntitor08/atasos-tools/releases/tag/v32-kaynak) + [v33-kaynak](https://github.com/johntitor08/atasos-tools/releases/tag/v33-kaynak) (Flatpak)
 
 This repository holds the atasOS build scripts, branding, history notes and
 `apm`, a prototype package manager.
@@ -151,24 +151,25 @@ in [docs/](docs/README.md).
 
 The October–November 2026 rebuild (after the v21–v28 ISOs were lost) is in
 [scripts/2026-11-rebuild/](scripts/2026-11-rebuild/README.md): the scripts that
-rebuilt the system, the kernels, and the v29–v32 live ISO builders. The logo,
+rebuilt the system, the kernels, and the v29–v33 live ISO builders. The logo,
 login theme, installer slideshow and HiDPI script are in [branding/](branding/README.md).
 
 ## Download
 
-The current live ISO is **v32** (2026-11-08, kernel 6.16.1-atas6):
+The current live ISO is **v33** (2026-11-08, kernel 6.16.1-atas6, with Flatpak and Flathub):
 <https://archive.org/details/atasos-live>
 
 ```
-sha256  f038779e36fd24f407f0d878942ee882c81de70c89068ea122049e07d57b7a08  atasos-live-v32.iso
+sha256  a9dd1ca36b67038b3941b9b90cb0fcad67801b3bb34290740a9b0f767fa4801f  atasos-live-v33.iso
 ```
 
 Secure Boot is not supported: the ISO is unsigned, so turn Secure Boot off in
 the firmware settings before booting it.
 
-Check it with `sha256sum -c atasos-live-v32.iso.sha256`. Older ISOs (v13–v31)
+Check it with `sha256sum -c atasos-live-v33.iso.sha256`. Older ISOs (v13–v32)
 are no longer published; only their builder scripts remain in this repository.
 
-Source code for v32 (tarballs, patches, kernel config, component versions):
-<https://github.com/johntitor08/atasos-tools/releases/tag/v32-kaynak>. Full Turkish guide (download,
+Source code: [v32-kaynak](https://github.com/johntitor08/atasos-tools/releases/tag/v32-kaynak)
+(tarballs, patches, kernel config, component versions) plus
+[v33-kaynak](https://github.com/johntitor08/atasos-tools/releases/tag/v33-kaynak) (the Flatpak chain). Full Turkish guide (download,
 install, use, known issues): [docs/REHBER.md](docs/REHBER.md).

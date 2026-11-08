@@ -4,11 +4,11 @@
 bilinmesi gerekenler.
 
 **İndir:** <https://archive.org/details/atasos-live>
-(doğrudan bağlantı: [atasos-live-v32.iso](https://archive.org/download/atasos-live/atasos-live-v32.iso),
+(doğrudan bağlantı: [atasos-live-v33.iso](https://archive.org/download/atasos-live/atasos-live-v33.iso),
 2,9 GB)
 
 ```
-sha256  f038779e36fd24f407f0d878942ee882c81de70c89068ea122049e07d57b7a08  atasos-live-v32.iso
+sha256  a9dd1ca36b67038b3941b9b90cb0fcad67801b3bb34290740a9b0f767fa4801f  atasos-live-v33.iso
 ```
 
 ## İçindekiler
@@ -37,6 +37,7 @@ atasOS, sıfırdan derlenmiş bir Linux dağıtımıdır:
 - **Çekirdek:** Linux 6.16.1-atas6 (kendi ayarlarıyla derlenmiş).
 - **Dil:** Türkçe arayüz, Türkçe Q klavye, saat dilimi İstanbul.
 - **Kurulum:** Calamares kurulum programıyla canlı ISO'dan.
+- **Uygulamalar:** Flatpak ve Flathub (Steam dahil).
 
 Hem BIOS hem UEFI bilgisayarlarda açılır.
 
@@ -67,18 +68,18 @@ kurulum testleri sanal makinede yapılmıştır.
 ISO'yu ve `.sha256` dosyasını aynı klasöre indirin:
 
 ```bash
-wget https://archive.org/download/atasos-live/atasos-live-v32.iso
-wget https://archive.org/download/atasos-live/atasos-live-v32.iso.sha256
-sha256sum -c atasos-live-v32.iso.sha256
+wget https://archive.org/download/atasos-live/atasos-live-v33.iso
+wget https://archive.org/download/atasos-live/atasos-live-v33.iso.sha256
+sha256sum -c atasos-live-v33.iso.sha256
 ```
 
-`atasos-live-v32.iso: OK` (Türkçe sistemlerde `TAMAM`) görmelisiniz. Başka bir
+`atasos-live-v33.iso: OK` (Türkçe sistemlerde `TAMAM`) görmelisiniz. Başka bir
 şey çıkarsa dosya bozuk inmiştir; yeniden indirin.
 
 Windows'ta PowerShell ile:
 
 ```powershell
-Get-FileHash .\atasos-live-v32.iso -Algorithm SHA256
+Get-FileHash .\atasos-live-v33.iso -Algorithm SHA256
 ```
 
 Çıkan değer yukarıdaki sha256 ile aynı olmalı.
@@ -92,7 +93,7 @@ Get-FileHash .\atasos-live-v32.iso -Algorithm SHA256
 disk). Sonra:
 
 ```bash
-sudo dd if=atasos-live-v32.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sudo dd if=atasos-live-v33.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 `/dev/sdX` yerine USB belleğin adını yazın (bölüm değil disk: `sdb1` değil
@@ -278,10 +279,14 @@ gelen paketlerle kalır. Yeni sürüm çıktığında yeniden kurmanız gerekir.
 
 ### Flatpak ve Steam
 
-Flatpak (1.16.1) ve Flathub deposu, geliştiricinin atasOS sisteminde kurulu ve
-**bir sonraki ISO'dan (v33) itibaren** gelecek; v32 ISO'sunda yoktur. Flatpak
-ile Flathub'daki uygulamalar atasOS'a kurulabilir; uygulamalar kendi
-kütüphaneleriyle gelir.
+Flatpak (1.16.1) ve Flathub deposu v33'ten itibaren kurulu gelir. Flathub'daki
+uygulamalar kendi kütüphaneleriyle kurulur:
+
+```bash
+flatpak install flathub <uygulama-kimliği>
+flatpak search <ad>
+flatpak update
+```
 
 **Steam:** atasOS yalnızca 64 bit derlendiği için Steam'in istediği 32 bit
 kütüphaneler sistemde yoktur; Steam bu yüzden Flatpak ile kurulur (Flatpak
@@ -292,13 +297,18 @@ flatpak install flathub com.valvesoftware.Steam
 flatpak run com.valvesoftware.Steam
 ```
 
-İlk kurulum yaklaşık 1–2 GB indirir. Kurulumdan sonra Steam uygulama menüsünde
+İlk kurulum yaklaşık 1–2 GB indirir. Canlı oturumda değil, kurulu sistemde
+kurun: canlı oturumun yazılabilir alanı bellekte ve küçüktür. Kurulumdan sonra Steam uygulama menüsünde
 de görünür (görünmezse oturumu kapatıp açın). Kurulan kullanıcı (`wheel`
 grubu) Flatpak uygulamalarını parola sormadan kurabilir.
 
 Kolu olanlar için: atasOS çekirdeğinde `uinput` / `uhid` henüz kapalı olduğu
 için Steam Input'un kol eşleme özellikleri sınırlıdır; klavye ve fareyle
 oynamayı etkilemez.
+
+Yarıda kalan bir kurulumdan sonra (ör. disk doldu) imza ya da "no signatures
+found" hatası alırsanız: `sudo flatpak repair`, ardından kurulumu yeniden
+başlatın.
 
 ## 10. Bilinen sorunlar
 
@@ -327,6 +337,8 @@ atasOS'taki yazılımların çoğu GPL ve benzeri özgür lisanslarla dağıtıl
 Kaynak kodları:
 
 - **atasOS kaynak paketi:** <https://github.com/johntitor08/atasos-tools/releases/tag/v32-kaynak>
+  ve v33'te eklenen Flatpak zinciri:
+  <https://github.com/johntitor08/atasos-tools/releases/tag/v33-kaynak>
   - ISO'daki paketlerin kaynak arşivleri ve LFS yamaları
   - çekirdeğin kaynağı (`linux-6.16.1.tar.xz`) ve atasOS'un çekirdek ayarı
     (`config-6.16.1-atas6`)
@@ -356,7 +368,7 @@ numaralı betiklerle yapılır
 derler. Initramfs kullanılmaz: açılış için gereken sürücüler (NVMe, SATA,
 ext4…) çekirdeğe gömülüdür.
 
-**Canlı ISO** (`atasos-62-v32-iso.sh`):
+**Canlı ISO** (`atasos-66-v33-iso.sh`):
 
 1. Kaynak bölüm salt okunur kullanılır; ISO'ya özel değişiklikler bir overlay
    katmanında yapılır (canlı kullanıcı, otomatik giriş, kurulum programı
@@ -386,10 +398,11 @@ son bir onay ister.
 
 | Sürüm | Tarih | Değişiklikler |
 |---|---|---|
-| **v32** | 2026-11-08 | Wayland oturumu giriş ekranında gizlendi (açılmıyordu ve yeni kullanıcılar için seçili geliyordu). |
+| **v33** | 2026-11-08 | Flatpak 1.16.1 ve Flathub deposu (Steam Flatpak ile kurulur). |
+| v32 | 2026-11-08 | Wayland oturumu giriş ekranında gizlendi (açılmıyordu ve yeni kullanıcılar için seçili geliyordu). |
 | v31 | 2026-11-07 | Çekirdek atas6 (AMD, NVIDIA, MediaTek/Realtek Wi-Fi); Breeze Koyu + atasOS mavisi, duvar kağıdı, GRUB teması; dokunarak tıklama; ISO dosyasından açılabilme. |
 | v30 | 2026-11-07 | Kurulumdan sonra kurulum programı kaldırılır; kurulan kullanıcıya sudo; logo, Türkçe ekran klavyeli giriş ekranı, otomatik HiDPI ölçeği. |
 | v29 | 2026-11-07 | Disk silinmesinin ardından yeniden kurulan sistemden ilk ISO. |
 | v13–v20 | 2026-07 – 2026-09 | İlk canlı ISO'lar ve Calamares kurulumu. |
 
-Yalnızca en son sürüm (v32) indirilebilir.
+Yalnızca en son sürüm (v33) indirilebilir.

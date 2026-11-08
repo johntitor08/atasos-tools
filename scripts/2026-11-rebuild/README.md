@@ -2,7 +2,7 @@
 
 The v21–v28 ISOs were lost when a CachyOS installer erased the disk that held
 them. These scripts rebuilt atasOS on its partition (`/dev/nvme0n1p5`, LFS 12.3 +
-KDE Plasma 6) from a Kubuntu host, then produced the v29–v32 live ISOs. Only v32
+KDE Plasma 6) from a Kubuntu host, then produced the v29–v33 live ISOs. Only the newest
 is still published (archive.org item `atasos-live`); the older ISOs were deleted.
 
 They are kept as they were run. Paths, partition numbers and UUIDs refer to the
@@ -39,6 +39,7 @@ original laptop; read a script before running it anywhere else.
 | 63 | Upload the newest ISO to the archive.org item `atasos-live` (resumable, `--retries 10`), verify the download URL (HTTP 200, exact size, `.sha256`), then ask one by one whether to delete older ISOs (permanently, `--no-backup`) |
 | 64 | Collect the GPL source package for v32 (p5 mounted read-only): every source tarball and LFS patch used, the atas6 kernel config (and a check that the kernel tree is unpatched), version lists of all installed libraries and CMake packages, `SHA256SUMS`. Published as the GitHub release `v32-kaynak` (archive.org darkened its upload: VirusTotal flagged the unmodified upstream `libXpm-3.5.17.tar.xz`, whose test pixmaps are deliberately malformed) |
 | 65 | Flatpak 1.16.1 for Steam, built from source in a chroot on p5 (`atasos-65-flatpak-derle.sh` runs inside): libseccomp, yaml, the GnuPG chain (npth, libassuan, libksba, gnupg, gpgme), libxmlb, AppStream, bubblewrap, xdg-dbus-proxy, libostree, pyparsing, flatpak. Each package is installed through a DESTDIR with a file list and an overwrite check. Then the `flatpak` system user, `XDG_DATA_DIRS` for the Plasma session and the Flathub remote (system-wide). Flatpak apps cannot be installed from a chroot (no user namespaces there), so Steam itself is installed from the running system |
+| 66 | **v33 live ISO** builder: v32 + Flatpak and the Flathub remote (from 65). Checks that flatpak, bwrap, gpg, the `flatpak` user and Flathub are in the image and that no installed Flatpak app or runtime slipped into it. Tested live in a VM: unprivileged bubblewrap, Flathub GPG verification, a runtime installed system-wide from the desktop session and a command run in its sandbox |
 
 ## Installer disk safety
 
