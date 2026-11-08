@@ -37,6 +37,8 @@ original laptop; read a script before running it anywhere else.
 | 61 | Write the newest ISO to a USB stick (USB disks only, typed device name + confirmation, checksum before and read-back after) |
 | 62 | **v32 live ISO** builder: v31 with the Plasma Wayland session hidden on the login screen (it does not start on atasOS, and SDDM preselected it for new users) |
 | 63 | Upload the newest ISO to the archive.org item `atasos-live` (resumable, `--retries 10`), verify the download URL (HTTP 200, exact size, `.sha256`), then ask one by one whether to delete older ISOs (permanently, `--no-backup`) |
+| 64 | Collect the GPL source package for v32 (p5 mounted read-only): every source tarball and LFS patch used, the atas6 kernel config (and a check that the kernel tree is unpatched), version lists of all installed libraries and CMake packages, `SHA256SUMS`. Published as the GitHub release `v32-kaynak` (archive.org darkened its upload: VirusTotal flagged the unmodified upstream `libXpm-3.5.17.tar.xz`, whose test pixmaps are deliberately malformed) |
+| 65 | Flatpak 1.16.1 for Steam, built from source in a chroot on p5 (`atasos-65-flatpak-derle.sh` runs inside): libseccomp, yaml, the GnuPG chain (npth, libassuan, libksba, gnupg, gpgme), libxmlb, AppStream, bubblewrap, xdg-dbus-proxy, libostree, pyparsing, flatpak. Each package is installed through a DESTDIR with a file list and an overwrite check. Then the `flatpak` system user, `XDG_DATA_DIRS` for the Plasma session and the Flathub remote (system-wide). Flatpak apps cannot be installed from a chroot (no user namespaces there), so Steam itself is installed from the running system |
 
 ## Installer disk safety
 

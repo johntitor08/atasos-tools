@@ -1,5 +1,8 @@
 # atasOS build history
 
+> Looking for how to download, install and use atasOS? See the Turkish user
+> guide: [REHBER.md](REHBER.md).
+
 Records from building atasOS (Linux From Scratch 12.3 + KDE Plasma 6, systemd,
 kernel 6.16.1) in July 2026. They are kept as they were written at the time:
 paths such as `~/Belgeler/lfs` and VM snapshot numbers refer to the original
