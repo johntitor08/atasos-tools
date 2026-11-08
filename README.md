@@ -141,3 +141,15 @@ The October–November 2026 rebuild (after the v21–v28 ISOs were lost) is in
 [scripts/2026-11-rebuild/](scripts/2026-11-rebuild/README.md): the scripts that
 rebuilt the system, the kernels, and the v29–v32 live ISO builders. The logo,
 login theme, installer slideshow and HiDPI script are in [branding/](branding/README.md).
+
+## Download
+
+The current live ISO is **v32** (2026-11-08, kernel 6.16.1-atas6):
+<https://archive.org/details/atasos-live>
+
+```
+sha256  f038779e36fd24f407f0d878942ee882c81de70c89068ea122049e07d57b7a08  atasos-live-v32.iso
+```
+
+Check it with `sha256sum -c atasos-live-v32.iso.sha256`. Older ISOs (v13–v31)
+are no longer published; only their builder scripts remain in this repository.

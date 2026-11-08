@@ -2,7 +2,8 @@
 
 The v21–v28 ISOs were lost when a CachyOS installer erased the disk that held
 them. These scripts rebuilt atasOS on its partition (`/dev/nvme0n1p5`, LFS 12.3 +
-KDE Plasma 6) from a Kubuntu host, then produced the v29 and v30 live ISOs.
+KDE Plasma 6) from a Kubuntu host, then produced the v29–v32 live ISOs. Only v32
+is still published (archive.org item `atasos-live`); the older ISOs were deleted.
 
 They are kept as they were run. Paths, partition numbers and UUIDs refer to the
 original laptop; read a script before running it anywhere else.
