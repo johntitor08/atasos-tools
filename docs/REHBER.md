@@ -4,11 +4,11 @@
 bilinmesi gerekenler.
 
 **İndir:** <https://archive.org/details/atasos-live>
-(doğrudan bağlantı: [atasos-live-v33.iso](https://archive.org/download/atasos-live/atasos-live-v33.iso),
+(doğrudan bağlantı: [atasos-live-v34.iso](https://archive.org/download/atasos-live/atasos-live-v34.iso),
 2,9 GB)
 
 ```
-sha256  a9dd1ca36b67038b3941b9b90cb0fcad67801b3bb34290740a9b0f767fa4801f  atasos-live-v33.iso
+sha256  821150bc4db057495c35c03ace41973c6e74dbbb8fbc1020570d7c100fee8ae6  atasos-live-v34.iso
 ```
 
 ## İçindekiler
@@ -68,18 +68,18 @@ kurulum testleri sanal makinede yapılmıştır.
 ISO'yu ve `.sha256` dosyasını aynı klasöre indirin:
 
 ```bash
-wget https://archive.org/download/atasos-live/atasos-live-v33.iso
-wget https://archive.org/download/atasos-live/atasos-live-v33.iso.sha256
-sha256sum -c atasos-live-v33.iso.sha256
+wget https://archive.org/download/atasos-live/atasos-live-v34.iso
+wget https://archive.org/download/atasos-live/atasos-live-v34.iso.sha256
+sha256sum -c atasos-live-v34.iso.sha256
 ```
 
-`atasos-live-v33.iso: OK` (Türkçe sistemlerde `TAMAM`) görmelisiniz. Başka bir
+`atasos-live-v34.iso: OK` (Türkçe sistemlerde `TAMAM`) görmelisiniz. Başka bir
 şey çıkarsa dosya bozuk inmiştir; yeniden indirin.
 
 Windows'ta PowerShell ile:
 
 ```powershell
-Get-FileHash .\atasos-live-v33.iso -Algorithm SHA256
+Get-FileHash .\atasos-live-v34.iso -Algorithm SHA256
 ```
 
 Çıkan değer yukarıdaki sha256 ile aynı olmalı.
@@ -93,7 +93,7 @@ Get-FileHash .\atasos-live-v33.iso -Algorithm SHA256
 disk). Sonra:
 
 ```bash
-sudo dd if=atasos-live-v33.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sudo dd if=atasos-live-v34.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 `/dev/sdX` yerine USB belleğin adını yazın (bölüm değil disk: `sdb1` değil
@@ -181,6 +181,11 @@ Kök bölüm için yalnızca ext4 desteklenir.
 - Bu kullanıcı yönetici yetkisi alır (`wheel` grubu): `sudo` ile kendi
   parolasıyla komut çalıştırabilir.
 - Varsayılan olarak root parolası kullanıcı parolasıyla aynıdır.
+- Parola boş bırakılamaz: parola kutuları boşken **Sonraki** düğmesi kapalıdır
+  ("Parola pek kısa"). Kısa ve basit parolalar kabul edilir.
+- **Parolayı sormadan kendiliğinden oturum aç** işaretlenirse bilgisayar
+  açılışta giriş ekranında beklemeden doğrudan masaüstüne açılır. Parola yine
+  vardır: `sudo` ve ekran kilidi onu ister.
 
 ### 6.6 Özet ve son onay
 
@@ -201,7 +206,8 @@ Kur" simgesi yoktur.
 
 1. **GRUB menüsü:** atasOS teması ile açılır. İlk girdi atasOS'tur; diskte başka
    sistemler varsa altta listelenir. 5 saniye sonra ilk girdi açılır.
-2. **Giriş ekranı:** kullanıcınızı seçip parolanızı yazın.
+2. **Giriş ekranı:** kullanıcınızı seçip parolanızı yazın. (Kurulumda
+   "Parolayı sormadan kendiliğinden oturum aç" seçildiyse bu adım atlanır.)
    - Klavyeniz yoksa ya da çalışmıyorsa **Ekran klavyesi** düğmesi Türkçe ekran
      klavyesini açar.
    - Oturum olarak **Plasma (X11)** seçili gelir; başka seçenek yoktur (bkz.
@@ -368,7 +374,7 @@ numaralı betiklerle yapılır
 derler. Initramfs kullanılmaz: açılış için gereken sürücüler (NVMe, SATA,
 ext4…) çekirdeğe gömülüdür.
 
-**Canlı ISO** (`atasos-66-v33-iso.sh`):
+**Canlı ISO** (`atasos-70-v34-iso.sh`):
 
 1. Kaynak bölüm salt okunur kullanılır; ISO'ya özel değişiklikler bir overlay
    katmanında yapılır (canlı kullanıcı, otomatik giriş, kurulum programı
@@ -379,8 +385,8 @@ ext4…) çekirdeğe gömülüdür.
 4. `grub-mkrescue` BIOS ve UEFI'den açılabilen hibrit ISO üretir; GRUB teması
    ISO'ya da eklenir.
 5. Betik, disk güvenliği ayarlarını (`initialPartitioningChoice: none`,
-   `prompt-install: true`), sudo yetkisini ve oturum ayarlarını denetler; biri
-   eksikse ISO üretmez.
+   `prompt-install: true`), sudo yetkisini, boş parola engelini, otomatik giriş
+   adımını ve oturum ayarlarını denetler; biri eksikse ISO üretmez.
 
 **Yayın.** `atasos-63-archive-yukle.sh` ISO'yu archive.org'a yükler, indirme
 adresini ve sha256'yı doğrular, ancak bundan sonra eski sürümleri (tek tek
@@ -398,11 +404,12 @@ son bir onay ister.
 
 | Sürüm | Tarih | Değişiklikler |
 |---|---|---|
-| **v33** | 2026-11-08 | Flatpak 1.16.1 ve Flathub deposu (Steam Flatpak ile kurulur). |
+| **v34** | 2026-11-13 | Kurulumda boş parola kabul edilmez (v33 boş parolayla kurulan sisteme girilemiyordu); "Parolayı sormadan kendiliğinden oturum aç" seçeneği artık çalışır. |
+| v33 | 2026-11-08 | Flatpak 1.16.1 ve Flathub deposu (Steam Flatpak ile kurulur). |
 | v32 | 2026-11-08 | Wayland oturumu giriş ekranında gizlendi (açılmıyordu ve yeni kullanıcılar için seçili geliyordu). |
 | v31 | 2026-11-07 | Çekirdek atas6 (AMD, NVIDIA, MediaTek/Realtek Wi-Fi); Breeze Koyu + atasOS mavisi, duvar kağıdı, GRUB teması; dokunarak tıklama; ISO dosyasından açılabilme. |
 | v30 | 2026-11-07 | Kurulumdan sonra kurulum programı kaldırılır; kurulan kullanıcıya sudo; logo, Türkçe ekran klavyeli giriş ekranı, otomatik HiDPI ölçeği. |
 | v29 | 2026-11-07 | Disk silinmesinin ardından yeniden kurulan sistemden ilk ISO. |
 | v13–v20 | 2026-07 – 2026-09 | İlk canlı ISO'lar ve Calamares kurulumu. |
 
-Yalnızca en son sürüm (v33) indirilebilir.
+Yalnızca en son sürüm (v34) indirilebilir.

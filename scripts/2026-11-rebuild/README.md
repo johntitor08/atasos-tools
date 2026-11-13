@@ -2,7 +2,7 @@
 
 The v21–v28 ISOs were lost when a CachyOS installer erased the disk that held
 them. These scripts rebuilt atasOS on its partition (`/dev/nvme0n1p5`, LFS 12.3 +
-KDE Plasma 6) from a Kubuntu host, then produced the v29–v33 live ISOs. Only the newest
+KDE Plasma 6) from a Kubuntu host, then produced the v29–v34 live ISOs. Only the newest
 is still published (archive.org item `atasos-live`); the older ISOs were deleted.
 
 They are kept as they were run. Paths, partition numbers and UUIDs refer to the
@@ -42,6 +42,8 @@ original laptop; read a script before running it anywhere else.
 | 66 | **v33 live ISO** builder: v32 + Flatpak and the Flathub remote (from 65). Checks that flatpak, bwrap, gpg, the `flatpak` user and Flathub are in the image and that no installed Flatpak app or runtime slipped into it. Tested live in a VM: unprivileged bubblewrap, Flathub GPG verification, a runtime installed system-wide from the desktop session and a command run in its sandbox |
 | 67 | Claude Code on atasOS: runs Anthropic's official installer (`claude.ai/install.sh`) in a chroot on p5 as the user `eren` (installs `~/.local/bin/claude`) and adds `~/.local/bin` to `~/.bashrc`. No credentials are copied; sign-in happens on first run |
 | 68 | Kubuntu GRUB: one atasOS entry. "atasOS" now boots the atas6 kernel and the separate atas6 test entry is removed; the live-ISO entry (rewritten by every ISO builder for the newest ISO) stays |
+| 69 | Try the installer yourself in a VM (QEMU/KVM, UEFI, a GTK window; no root): the VM sees only the ISO and a 20 GB virtual disk under `/veri/atasos-iso/vm-kurulum/`, never the real disks. `kurulu` boots the installed virtual disk, `sifirla` empties it, `sil` removes the test folder. Fixed 1280x800 display (std VGA + EDID): with virtio-vga the GTK window passed its initial 640x480 size to the guest |
+| 70 | **v34 live ISO** builder: v33 with two installer fixes found by installing v33 in a VM. Calamares accepted an empty password, and the installed system could not be logged into (PAM has no `nullok`, root stays locked): now `passwordRequirements: minLength: 1` with weak passwords not allowed (Calamares 3.3.14 ignores `nonempty: true`). The "log in automatically" checkbox did nothing because the `displaymanager` job never ran: it now runs after `shellprocess` and writes `[Autologin]` to `/etc/sddm.conf`. Both checked by the builder and tested in a VM |
 
 ## Installer disk safety
 

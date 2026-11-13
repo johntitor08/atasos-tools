@@ -2,7 +2,7 @@
 
 > **atasOS** — Linux From Scratch 12.3 tabanlı, KDE Plasma 6 masaüstlü Türkçe dağıtım.
 >
-> - **ISO indir (v33):** <https://archive.org/download/atasos-live/atasos-live-v33.iso>
+> - **ISO indir (v34):** <https://archive.org/download/atasos-live/atasos-live-v34.iso>
 >   ([sayfa](https://archive.org/details/atasos-live), [sha256](#download))
 > - **Rehber (indirme, kurulum, kullanım, bilinen sorunlar):** [docs/REHBER.md](docs/REHBER.md)
 > - **Kaynak kod:** [v32-kaynak](https://github.com/johntitor08/atasos-tools/releases/tag/v32-kaynak) + [v33-kaynak](https://github.com/johntitor08/atasos-tools/releases/tag/v33-kaynak) (Flatpak)
@@ -151,22 +151,23 @@ in [docs/](docs/README.md).
 
 The October–November 2026 rebuild (after the v21–v28 ISOs were lost) is in
 [scripts/2026-11-rebuild/](scripts/2026-11-rebuild/README.md): the scripts that
-rebuilt the system, the kernels, and the v29–v33 live ISO builders. The logo,
+rebuilt the system, the kernels, and the v29–v34 live ISO builders. The logo,
 login theme, installer slideshow and HiDPI script are in [branding/](branding/README.md).
 
 ## Download
 
-The current live ISO is **v33** (2026-11-08, kernel 6.16.1-atas6, with Flatpak and Flathub):
+The current live ISO is **v34** (2026-11-13, kernel 6.16.1-atas6, with Flatpak and Flathub; the installer
+refuses an empty password and its "log in automatically" option works):
 <https://archive.org/details/atasos-live>
 
 ```
-sha256  a9dd1ca36b67038b3941b9b90cb0fcad67801b3bb34290740a9b0f767fa4801f  atasos-live-v33.iso
+sha256  821150bc4db057495c35c03ace41973c6e74dbbb8fbc1020570d7c100fee8ae6  atasos-live-v34.iso
 ```
 
 Secure Boot is not supported: the ISO is unsigned, so turn Secure Boot off in
 the firmware settings before booting it.
 
-Check it with `sha256sum -c atasos-live-v33.iso.sha256`. Older ISOs (v13–v32)
+Check it with `sha256sum -c atasos-live-v34.iso.sha256`. Older ISOs (v13–v33)
 are no longer published; only their builder scripts remain in this repository.
 
 Source code: [v32-kaynak](https://github.com/johntitor08/atasos-tools/releases/tag/v32-kaynak)
