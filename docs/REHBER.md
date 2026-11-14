@@ -4,11 +4,11 @@
 bilinmesi gerekenler.
 
 **İndir:** <https://archive.org/details/atasos-live>
-(doğrudan bağlantı: [atasos-live-v34.iso](https://archive.org/download/atasos-live/atasos-live-v34.iso),
+(doğrudan bağlantı: [atasos-live-v35.iso](https://archive.org/download/atasos-live/atasos-live-v35.iso),
 2,9 GB)
 
 ```
-sha256  821150bc4db057495c35c03ace41973c6e74dbbb8fbc1020570d7c100fee8ae6  atasos-live-v34.iso
+sha256  3dad2cffcdad46b89b585370320df84c331a469f9699bb970d96bf449f13ffdd  atasos-live-v35.iso
 ```
 
 ## İçindekiler
@@ -68,18 +68,18 @@ kurulum testleri sanal makinede yapılmıştır.
 ISO'yu ve `.sha256` dosyasını aynı klasöre indirin:
 
 ```bash
-wget https://archive.org/download/atasos-live/atasos-live-v34.iso
-wget https://archive.org/download/atasos-live/atasos-live-v34.iso.sha256
-sha256sum -c atasos-live-v34.iso.sha256
+wget https://archive.org/download/atasos-live/atasos-live-v35.iso
+wget https://archive.org/download/atasos-live/atasos-live-v35.iso.sha256
+sha256sum -c atasos-live-v35.iso.sha256
 ```
 
-`atasos-live-v34.iso: OK` (Türkçe sistemlerde `TAMAM`) görmelisiniz. Başka bir
+`atasos-live-v35.iso: OK` (Türkçe sistemlerde `TAMAM`) görmelisiniz. Başka bir
 şey çıkarsa dosya bozuk inmiştir; yeniden indirin.
 
 Windows'ta PowerShell ile:
 
 ```powershell
-Get-FileHash .\atasos-live-v34.iso -Algorithm SHA256
+Get-FileHash .\atasos-live-v35.iso -Algorithm SHA256
 ```
 
 Çıkan değer yukarıdaki sha256 ile aynı olmalı.
@@ -93,7 +93,7 @@ Get-FileHash .\atasos-live-v34.iso -Algorithm SHA256
 disk). Sonra:
 
 ```bash
-sudo dd if=atasos-live-v34.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sudo dd if=atasos-live-v35.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 `/dev/sdX` yerine USB belleğin adını yazın (bölüm değil disk: `sdb1` değil
@@ -157,9 +157,16 @@ başka bir Linux) varsa adlarıyla gösterilir. Sonra seçeneklerden birini seç
 
 - **Diski sil:** seçili diskteki **her şey silinir** ve atasOS diskin tamamına
   kurulur. Yalnızca boş bir diskte ya da verilerini gözden çıkardığınız bir diskte
-  seçin.
+  seçin. Son onay penceresi genel bir uyarıdır ("Bu değişiklikleri geri
+  alamayacaksınız"); diskte başka sistem ya da veri olduğunu ayrıca hatırlatmaz.
 - **Yanına kur:** mevcut bir bölüm küçültülür, açılan yere atasOS kurulur.
   Açılışta GRUB menüsünden hangi sistemi açacağınızı seçersiniz.
+  **Dikkat:** kurulum programı, küçültülecek bölümü varsayılan olarak
+  neredeyse en küçük boyutuna indirmeyi önerir. Alttaki çubuğu sürükleyerek o
+  bölüme yeterince boş yer bırakın. Ayrıca bu seçenekle açılan yeni bölüm 1 MiB
+  sınırına hizalanmayabilir (veri kaybı olmaz, SSD'de biraz yavaşlatabilir);
+  hizalama önemliyse yeri önceden açıp **Bölüm değiştir** ya da **Elle
+  bölümleme** kullanın.
 - **Bölüm değiştir:** var olan bir bölümün yerine atasOS kurulur; o bölümdeki
   veriler silinir.
 - **Elle bölümleme:** bölümleri kendiniz oluşturursunuz. Gerekenler:
@@ -172,6 +179,12 @@ Takas (swap): **Takas yok** ya da **Takas dosyası** seçilebilir. 8 GB'tan az
 belleğiniz varsa takas dosyası önerilir.
 
 Kök bölüm için yalnızca ext4 desteklenir.
+
+EFI bölümündeki başka sistemlerin dosyalarına dokunulmaz: atasOS yalnızca
+`EFI/atasOS` klasörünü ekler. Yedek önyükleyici `EFI/BOOT/BOOTX64.EFI` yalnızca
+yoksa yazılır (v34 ve öncesi, örneğin Ubuntu/Kubuntu'nun bu dosyasının üstüne
+yazıyordu). Kurulum, bilgisayarın açılış listesine "atasOS" girdisini ekler ve
+genellikle ilk sıraya koyar; diğer sistemler atasOS'un GRUB menüsünde listelenir.
 
 ### 6.5 Kullanıcılar
 
@@ -374,7 +387,7 @@ numaralı betiklerle yapılır
 derler. Initramfs kullanılmaz: açılış için gereken sürücüler (NVMe, SATA,
 ext4…) çekirdeğe gömülüdür.
 
-**Canlı ISO** (`atasos-70-v34-iso.sh`):
+**Canlı ISO** (`atasos-74-v35-iso.sh`):
 
 1. Kaynak bölüm salt okunur kullanılır; ISO'ya özel değişiklikler bir overlay
    katmanında yapılır (canlı kullanıcı, otomatik giriş, kurulum programı
@@ -386,7 +399,8 @@ ext4…) çekirdeğe gömülüdür.
    ISO'ya da eklenir.
 5. Betik, disk güvenliği ayarlarını (`initialPartitioningChoice: none`,
    `prompt-install: true`), sudo yetkisini, boş parola engelini, otomatik giriş
-   adımını ve oturum ayarlarını denetler; biri eksikse ISO üretmez.
+   adımını, EFI yedek önyükleyici ayarını, `root=PARTUUID` ayarını ve oturum
+   ayarlarını denetler; biri eksikse ISO üretmez.
 
 **Yayın.** `atasos-63-archive-yukle.sh` ISO'yu archive.org'a yükler, indirme
 adresini ve sha256'yı doğrular, ancak bundan sonra eski sürümleri (tek tek
@@ -404,7 +418,8 @@ son bir onay ister.
 
 | Sürüm | Tarih | Değişiklikler |
 |---|---|---|
-| **v34** | 2026-11-13 | Kurulumda boş parola kabul edilmez (v33 boş parolayla kurulan sisteme girilemiyordu); "Parolayı sormadan kendiliğinden oturum aç" seçeneği artık çalışır. |
+| **v35** | 2026-11-14 | Kurulum, EFI bölümündeki başka bir sistemin yedek önyükleyicisinin (`EFI/BOOT/BOOTX64.EFI`, ör. Kubuntu'nun) üstüne yazmaz, yalnızca yoksa yazar; kurulan GRUB sistemi `root=PARTUUID=` ile açar (önceden aygıt adıyla, ör. `/dev/nvme0n1p4`; disk sırası değişince açılmazdı). Sanal NVMe diskte dört bölümleme seçeneğinin hepsiyle denendi. |
+| v34 | 2026-11-13 | Kurulumda boş parola kabul edilmez (v33 boş parolayla kurulan sisteme girilemiyordu); "Parolayı sormadan kendiliğinden oturum aç" seçeneği artık çalışır. |
 | v33 | 2026-11-08 | Flatpak 1.16.1 ve Flathub deposu (Steam Flatpak ile kurulur). |
 | v32 | 2026-11-08 | Wayland oturumu giriş ekranında gizlendi (açılmıyordu ve yeni kullanıcılar için seçili geliyordu). |
 | v31 | 2026-11-07 | Çekirdek atas6 (AMD, NVIDIA, MediaTek/Realtek Wi-Fi); Breeze Koyu + atasOS mavisi, duvar kağıdı, GRUB teması; dokunarak tıklama; ISO dosyasından açılabilme. |
@@ -412,4 +427,4 @@ son bir onay ister.
 | v29 | 2026-11-07 | Disk silinmesinin ardından yeniden kurulan sistemden ilk ISO. |
 | v13–v20 | 2026-07 – 2026-09 | İlk canlı ISO'lar ve Calamares kurulumu. |
 
-Yalnızca en son sürüm (v34) indirilebilir.
+Yalnızca en son sürüm (v35) indirilebilir.
