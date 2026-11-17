@@ -2,7 +2,7 @@
 
 > **atasOS** — Linux From Scratch 12.3 tabanlı, KDE Plasma 6 masaüstlü Türkçe dağıtım.
 >
-> - **ISO indir (v35):** <https://archive.org/download/atasos-live/atasos-live-v35.iso>
+> - **ISO indir (v36):** <https://archive.org/download/atasos-live/atasos-live-v36.iso>
 >   ([sayfa](https://archive.org/details/atasos-live), [sha256](#download))
 > - **Rehber (indirme, kurulum, kullanım, bilinen sorunlar):** [docs/REHBER.md](docs/REHBER.md)
 > - **Kaynak kod:** [v32-kaynak](https://github.com/johntitor08/atasos-tools/releases/tag/v32-kaynak) + [v33-kaynak](https://github.com/johntitor08/atasos-tools/releases/tag/v33-kaynak) (Flatpak)
@@ -151,23 +151,26 @@ in [docs/](docs/README.md).
 
 The October–November 2026 rebuild (after the v21–v28 ISOs were lost) is in
 [scripts/2026-11-rebuild/](scripts/2026-11-rebuild/README.md): the scripts that
-rebuilt the system, the kernels, and the v29–v35 live ISO builders. The logo,
+rebuilt the system, the kernels, and the v29–v36 live ISO builders. The logo,
 login theme, installer slideshow and HiDPI script are in [branding/](branding/README.md).
 
 ## Download
 
-The current live ISO is **v35** (2026-11-14, kernel 6.16.1-atas6, with Flatpak and Flathub; the installer
-no longer overwrites another system's EFI fallback loader, and the installed GRUB boots by `root=PARTUUID=`):
+The current live ISO is **v36** (2026-11-17, kernel 6.16.1-atas6, with Flatpak and Flathub). v36 ships a patched
+Calamares 3.3.14 (install-alongside partitions aligned to 1 MiB, the size slider can no longer default below the
+data on the partition, "erase disk" names the disk in a red warning before writing, disk encryption hidden because
+there is no initramfs), a "Firefox'u Güncelle" menu entry (Mozilla's signed release), and atspkg 0.3.0, which only
+accepts a repository index signed with the atasOS repository key and always verifies TLS:
 <https://archive.org/details/atasos-live>
 
 ```
-sha256  3dad2cffcdad46b89b585370320df84c331a469f9699bb970d96bf449f13ffdd  atasos-live-v35.iso
+sha256  c1513c3e102c87ce1a2fb1d5eda8ec9fd13d5f6d5f0ea0e02589dff1eafab101  atasos-live-v36.iso
 ```
 
 Secure Boot is not supported: the ISO is unsigned, so turn Secure Boot off in
 the firmware settings before booting it.
 
-Check it with `sha256sum -c atasos-live-v35.iso.sha256`. Older ISOs (v13–v34)
+Check it with `sha256sum -c atasos-live-v36.iso.sha256`. Older ISOs (v13–v35)
 are no longer published; only their builder scripts remain in this repository.
 
 Source code: [v32-kaynak](https://github.com/johntitor08/atasos-tools/releases/tag/v32-kaynak)

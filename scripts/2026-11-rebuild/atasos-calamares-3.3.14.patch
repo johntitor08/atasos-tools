@@ -1,0 +1,149 @@
+diff --git a/src/libcalamaresui/ViewManager.cpp b/src/libcalamaresui/ViewManager.cpp
+index 0e8c453..278b120 100644
+--- a/src/libcalamaresui/ViewManager.cpp
++++ b/src/libcalamaresui/ViewManager.cpp
+@@ -14,6 +14,7 @@
+ #include "ViewManager.h"
+ 
+ #include "Branding.h"
++#include "GlobalStorage.h"
+ #include "JobQueue.h"
+ #include "Settings.h"
+ 
+@@ -348,9 +349,24 @@ ViewManager::next()
+                 = settings->isSetupMode() ? tr( "&Set Up Now", "@button" ) : tr( "&Install Now", "@button" );
+ 
+             const auto* branding = Calamares::Branding::instance();
++            question = question.arg( branding->shortProductName(), branding->shortVersionedName() );
++            // atasOS: "Erase disk" gets an explicit warning naming the disk (set by the partition module).
++            const auto* gs = Calamares::JobQueue::instance() ? Calamares::JobQueue::instance()->globalStorage()
++                                                             : nullptr;
++            const QString eraseDisk
++                = gs ? gs->value( QStringLiteral( "atasosEraseDisk" ) ).toString() : QString();
++            if ( !eraseDisk.isEmpty() )
++            {
++                question += QStringLiteral( "<br/><br/><strong><span style=\"color:#c0392b\">"
++                                            "DİKKAT: %1 diskindeki TÜM bölümler ve veriler silinecek "
++                                            "(Windows, Linux gibi diğer işletim sistemleri ve kişisel "
++                                            "dosyalar dahil).</span></strong><br/>"
++                                            "Emin değilseniz \"Geri Git\" ile önceki sayfalara dönün." )
++                                .arg( eraseDisk.toHtmlEscaped() );
++            }
+             int reply = questionBox( m_widget,
+                                      title,
+-                                     question.arg( branding->shortProductName(), branding->shortVersionedName() ),
++                                     question,
+                                      confirm,
+                                      tr( "Go &Back", "@button" ) );
+             if ( reply == 1 )
+diff --git a/src/modules/partition/PartitionViewStep.cpp b/src/modules/partition/PartitionViewStep.cpp
+index f356c71..4da4032 100644
+--- a/src/modules/partition/PartitionViewStep.cpp
++++ b/src/modules/partition/PartitionViewStep.cpp
+@@ -682,6 +682,25 @@ checkForFilesystemConflicts( PartitionCoreModule* core )
+ void
+ PartitionViewStep::onLeave()
+ {
++    // atasOS: tell the final "Install now?" prompt (ViewManager) which disk will be wiped, so it
++    // can say so explicitly instead of the generic "about to make changes to your disk".
++    {
++        auto* gs = Calamares::JobQueue::instance()->globalStorage();
++        Device* d = ( m_widget->currentWidget() == m_choicePage
++                      && m_config->installChoice() == Config::InstallChoice::Erase )
++            ? m_choicePage->atasosSelectedDevice()
++            : nullptr;
++        if ( gs && d )
++        {
++            gs->insert( QStringLiteral( "atasosEraseDisk" ),
++                        QStringLiteral( "%1 (%2)" ).arg( d->deviceNode(), d->name() ) );
++        }
++        else if ( gs )
++        {
++            gs->remove( QStringLiteral( "atasosEraseDisk" ) );
++        }
++    }
++
+     if ( m_widget->currentWidget() == m_choicePage )
+     {
+         m_choicePage->onLeave();
+diff --git a/src/modules/partition/gui/ChoicePage.cpp b/src/modules/partition/gui/ChoicePage.cpp
+index 382c1a7..f3dece6 100644
+--- a/src/modules/partition/gui/ChoicePage.cpp
++++ b/src/modules/partition/gui/ChoicePage.cpp
+@@ -783,9 +783,19 @@ ChoicePage::doAlongsideApply()
+             qint64 newLastSector
+                 = firstSector + m_afterPartitionSplitterWidget->splitPartitionSize() / dev->logicalSize();
+ 
++            // atasOS: upstream started the new partition at newLastSector + 2, which is not 1 MiB
++            // aligned (slow on SSD/NVMe, some tools warn). Round the shrunk partition's end down so
++            // the new partition starts on a 1 MiB boundary.
++            const qint64 alignSectors = qMax< qint64 >( 1, 1048576 / dev->logicalSize() );
++            const qint64 newFirstSector = ( ( newLastSector + 1 ) / alignSectors ) * alignSectors;
++            if ( newFirstSector - 1 > firstSector )
++            {
++                newLastSector = newFirstSector - 1;
++            }
++
+             m_core->resizePartition( dev, candidate, firstSector, newLastSector );
+             m_core->layoutApply( dev,
+-                                 newLastSector + 2,
++                                 newLastSector + 1,
+                                  oldLastSector,
+                                  m_config->luksFileSystemType(),
+                                  m_encryptWidget->passphrase(),
+diff --git a/src/modules/partition/gui/ChoicePage.h b/src/modules/partition/gui/ChoicePage.h
+index 6a777e2..315db04 100644
+--- a/src/modules/partition/gui/ChoicePage.h
++++ b/src/modules/partition/gui/ChoicePage.h
+@@ -88,6 +88,9 @@ public:
+     int lastSelectedDeviceIndex();
+     void setLastSelectedDeviceIndex( int index );
+ 
++    /// atasOS: disk chosen on this page (for the "erase disk" warning in the final prompt)
++    Device* atasosSelectedDevice() { return selectedDevice(); }
++
+ signals:
+     void nextStatusChanged( bool );
+     void actionChosen();
+diff --git a/src/modules/partition/gui/CreatePartitionDialog.cpp b/src/modules/partition/gui/CreatePartitionDialog.cpp
+index 213f5c7..ee3dd48 100644
+--- a/src/modules/partition/gui/CreatePartitionDialog.cpp
++++ b/src/modules/partition/gui/CreatePartitionDialog.cpp
+@@ -318,7 +318,19 @@ CreatePartitionDialog::updateMountPointUi()
+         FileSystem::Type type = FileSystem::typeForName( m_ui->fsComboBox->currentText() );
+         enabled = !s_unmountableFS.contains( type );
+ 
+-        if ( FileSystemFactory::map()[ FileSystem::Type::Luks ]->supportCreate() && FS::luks::canEncryptType( type )
++        // atasOS: no initramfs, so an encrypted root cannot be unlocked at boot. partition.conf sets
++        // enableLuksAutomatedPartitioning: false; honour it in manual partitioning too.
++        const auto* atasosGs = Calamares::JobQueue::instance() ? Calamares::JobQueue::instance()->globalStorage()
++                                                               : nullptr;
++        const bool atasosLuksAllowed = !atasosGs || !atasosGs->contains( QStringLiteral( "enableLuksAutomatedPartitioning" ) )
++            || atasosGs->value( QStringLiteral( "enableLuksAutomatedPartitioning" ) ).toBool();
++
++        if ( !atasosLuksAllowed )
++        {
++            m_ui->encryptWidget->reset();
++            m_ui->encryptWidget->hide();
++        }
++        else if ( FileSystemFactory::map()[ FileSystem::Type::Luks ]->supportCreate() && FS::luks::canEncryptType( type )
+              && !m_role.has( PartitionRole::Extended ) )
+         {
+             m_ui->encryptWidget->show();
+diff --git a/src/modules/partition/gui/PartitionSplitterWidget.cpp b/src/modules/partition/gui/PartitionSplitterWidget.cpp
+index 9fef8e3..95cca13 100644
+--- a/src/modules/partition/gui/PartitionSplitterWidget.cpp
++++ b/src/modules/partition/gui/PartitionSplitterWidget.cpp
+@@ -222,6 +222,12 @@ PartitionSplitterWidget::setSplitPartition( const QString& path, qint64 minSize,
+     {
+         preferredSize = maxSize;
+     }
++    // atasOS: upstream did not clamp from below. With a partition more than ~45% full the
++    // default (half the partition) was smaller than the data on it, i.e. an impossible shrink.
++    if ( preferredSize < minSize )
++    {
++        preferredSize = minSize;
++    }
+ 
+     qint64 newSize = m_itemToResize.size - preferredSize;
+     m_itemToResize.size = preferredSize;

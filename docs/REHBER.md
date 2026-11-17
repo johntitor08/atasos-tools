@@ -4,11 +4,11 @@
 bilinmesi gerekenler.
 
 **İndir:** <https://archive.org/details/atasos-live>
-(doğrudan bağlantı: [atasos-live-v35.iso](https://archive.org/download/atasos-live/atasos-live-v35.iso),
+(doğrudan bağlantı: [atasos-live-v36.iso](https://archive.org/download/atasos-live/atasos-live-v36.iso),
 2,9 GB)
 
 ```
-sha256  3dad2cffcdad46b89b585370320df84c331a469f9699bb970d96bf449f13ffdd  atasos-live-v35.iso
+sha256  c1513c3e102c87ce1a2fb1d5eda8ec9fd13d5f6d5f0ea0e02589dff1eafab101  atasos-live-v36.iso
 ```
 
 ## İçindekiler
@@ -68,18 +68,18 @@ kurulum testleri sanal makinede yapılmıştır.
 ISO'yu ve `.sha256` dosyasını aynı klasöre indirin:
 
 ```bash
-wget https://archive.org/download/atasos-live/atasos-live-v35.iso
-wget https://archive.org/download/atasos-live/atasos-live-v35.iso.sha256
-sha256sum -c atasos-live-v35.iso.sha256
+wget https://archive.org/download/atasos-live/atasos-live-v36.iso
+wget https://archive.org/download/atasos-live/atasos-live-v36.iso.sha256
+sha256sum -c atasos-live-v36.iso.sha256
 ```
 
-`atasos-live-v35.iso: OK` (Türkçe sistemlerde `TAMAM`) görmelisiniz. Başka bir
+`atasos-live-v36.iso: OK` (Türkçe sistemlerde `TAMAM`) görmelisiniz. Başka bir
 şey çıkarsa dosya bozuk inmiştir; yeniden indirin.
 
 Windows'ta PowerShell ile:
 
 ```powershell
-Get-FileHash .\atasos-live-v35.iso -Algorithm SHA256
+Get-FileHash .\atasos-live-v36.iso -Algorithm SHA256
 ```
 
 Çıkan değer yukarıdaki sha256 ile aynı olmalı.
@@ -93,7 +93,7 @@ Get-FileHash .\atasos-live-v35.iso -Algorithm SHA256
 disk). Sonra:
 
 ```bash
-sudo dd if=atasos-live-v35.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sudo dd if=atasos-live-v36.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 `/dev/sdX` yerine USB belleğin adını yazın (bölüm değil disk: `sdb1` değil
@@ -152,21 +152,41 @@ atasOS'ta bu adımda **hiçbir seçenek önceden seçili gelmez**. Ne yapılaca�
 siz seçmeden **İleri** düğmesi açılmaz. Bu bilinçli bir güvenlik önlemidir:
 yanlışlıkla bir diskin tamamen silinmesini önler.
 
-Önce üstten **doğru diski** seçin. Diskte başka işletim sistemleri (Windows,
+> **⚠️ Kurulumdan önce önemli dosyalarınızı başka bir diske ya da buluta
+> yedekleyin.** "Diski sil", "Bölüm değiştir" ve "Yanına kur" diske yazar; yanlış
+> disk ya da bölüm seçimi, elektrik kesilmesi veya bozuk bir dosya sistemi veri
+> kaybına yol açabilir. Kurulum programı geri alma imkânı vermez.
+
+Önce üstten **doğru diski** seçin: adına ve boyutuna bakın (örneğin
+`/dev/nvme0n1`, 953,9 GiB). Bilgisayarda birden fazla disk ya da takılı bir USB
+bellek varsa özellikle dikkat edin. Diskte başka işletim sistemleri (Windows,
 başka bir Linux) varsa adlarıyla gösterilir. Sonra seçeneklerden birini seçin:
 
-- **Diski sil:** seçili diskteki **her şey silinir** ve atasOS diskin tamamına
-  kurulur. Yalnızca boş bir diskte ya da verilerini gözden çıkardığınız bir diskte
-  seçin. Son onay penceresi genel bir uyarıdır ("Bu değişiklikleri geri
-  alamayacaksınız"); diskte başka sistem ya da veri olduğunu ayrıca hatırlatmaz.
+- **Diski sil:** seçili diskteki **her şey silinir** (diğer işletim sistemleri
+  ve kişisel dosyalar dahil) ve atasOS diskin tamamına kurulur. Yalnızca boş bir
+  diskte ya da verilerini gözden çıkardığınız bir diskte seçin.
+  - v35'te son onay penceresi genel bir uyarıdır ("Bu değişiklikleri geri
+    alamayacaksınız"); diskte başka sistem ya da veri olduğunu ayrıca
+    hatırlatmaz.
+  - v36'dan itibaren son onayda silinecek diskin adı kırmızı bir **DİKKAT**
+    uyarısıyla yazılır. Disk adı beklediğiniz değilse **Geri Git**'e basın.
 - **Yanına kur:** mevcut bir bölüm küçültülür, açılan yere atasOS kurulur.
   Açılışta GRUB menüsünden hangi sistemi açacağınızı seçersiniz.
-  **Dikkat:** kurulum programı, küçültülecek bölümü varsayılan olarak
-  neredeyse en küçük boyutuna indirmeyi önerir. Alttaki çubuğu sürükleyerek o
-  bölüme yeterince boş yer bırakın. Ayrıca bu seçenekle açılan yeni bölüm 1 MiB
-  sınırına hizalanmayabilir (veri kaybı olmaz, SSD'de biraz yavaşlatabilir);
-  hizalama önemliyse yeri önceden açıp **Bölüm değiştir** ya da **Elle
-  bölümleme** kullanın.
+  **Dikkat, devam etmeden önce alttaki çubuğu mutlaka kontrol edin:**
+  - Varsayılan bölme noktası bölümün yarısıdır, ama atasOS'a gereken yer
+    (yaklaşık 15 GB) ayrılmak zorunda olduğundan küçük bir bölümde küçültülen
+    bölüme çok az yer kalabilir. Çubuğu sürükleyerek o bölüme yeterince boş yer
+    bırakın.
+  - v35'te, yarısından fazlası dolu bir bölümde varsayılan bölme noktası
+    bölümdeki verinin altına düşebilir; küçültme yapılamaz ve kurulum yarıda
+    kalır. Çubuğu, mevcut verinin rahatça sığacağı yere çekin.
+  - v35'te bu seçenekle açılan yeni bölüm 1 MiB sınırına hizalanmaz (veri kaybı
+    olmaz, SSD'de biraz yavaşlatabilir). Hizalama önemliyse yeri önceden açıp
+    **Bölüm değiştir** ya da **Elle bölümleme** kullanın.
+  - v36'dan itibaren bu iki sorun düzeltildi; çubuğu yine de kontrol edin.
+  - Windows bölümünü küçültecekseniz önce Windows'ta **Hızlı başlatma**yı
+    kapatın ve BitLocker açıksa askıya alın; aksi halde bölüm küçültülemez ya da
+    Windows açılmayabilir.
 - **Bölüm değiştir:** var olan bir bölümün yerine atasOS kurulur; o bölümdeki
   veriler silinir.
 - **Elle bölümleme:** bölümleri kendiniz oluşturursunuz. Gerekenler:
@@ -174,6 +194,10 @@ başka bir Linux) varsa adlarıyla gösterilir. Sonra seçeneklerden birini seç
   - UEFI bilgisayarlarda bir EFI bölümü, `/boot/efi` olarak bağlı (FAT32, var
     olanı kullanabilirsiniz; biçimlendirmeyin, içinde Windows'un açılış dosyaları
     olabilir).
+
+**Disk şifreleme** desteklenmez: atasOS'ta açılışta şifreyi soracak bir
+initramfs yoktur, şifreli bir kök bölüm açılamaz. Bu yüzden v36'dan itibaren
+"Sistemi şifrele" seçeneği gösterilmez (v35'te görünür; **seçmeyin**).
 
 Takas (swap): **Takas yok** ya da **Takas dosyası** seçilebilir. 8 GB'tan az
 belleğiniz varsa takas dosyası önerilir.
@@ -217,8 +241,9 @@ Kur" simgesi yoktur.
 
 ## 7. İlk açılış
 
-1. **GRUB menüsü:** atasOS teması ile açılır. İlk girdi atasOS'tur; diskte başka
-   sistemler varsa altta listelenir. 5 saniye sonra ilk girdi açılır.
+1. **GRUB menüsü:** diskte yalnızca atasOS varsa menü gösterilmez ve atasOS
+   hemen açılır (menüyü görmek için açılışta **Esc**'ye basın). Diskte başka
+   sistemler varsa atasOS temalı menü 3 saniye gösterilir; ilk girdi atasOS'tur.
 2. **Giriş ekranı:** kullanıcınızı seçip parolanızı yazın. (Kurulumda
    "Parolayı sormadan kendiliğinden oturum aç" seçildiyse bu adım atlanır.)
    - Klavyeniz yoksa ya da çalışmıyorsa **Ekran klavyesi** düğmesi Türkçe ekran
@@ -270,7 +295,9 @@ Panelin sağındaki ağ simgesinden ağı seçip parolasını girin.
 ### Diğer işletim sistemleri
 
 atasOS'u Windows ya da başka bir Linux'un yanına kurduysanız, GRUB menüsü her
-açılışta hangisini başlatacağınızı sorar.
+açılışta 3 saniye boyunca hangisini başlatacağınızı sorar. Sonradan başka bir
+sistem kurarsanız atasOS'ta `sudo grub-mkconfig -o /boot/grub/grub.cfg`
+çalıştırın; menü kendiliğinden yeniden görünür.
 
 ## 9. Paketler ve güncelleme
 
@@ -281,7 +308,11 @@ gelen paketlerle kalır. Yeni sürüm çıktığında yeniden kurmanız gerekir.
 
 - **atspkg** (sistemde kurulu): kendi paket biçimini kurar, kaldırır, doğrular.
   Paket deposu: <https://archive.org/details/atasos-depo>. Şimdilik depoda
-  yalnızca atspkg'nin kendisi vardır.
+  yalnızca atspkg'nin kendisi vardır. v36'daki atspkg 0.3.0, depo dizinini
+  yalnızca atasOS depo anahtarıyla imzalıysa kabul eder (anahtar
+  `/usr/share/atspkg/depo-anahtari.gpg`, parmak izi
+  `0D5A 09FA 2D63 998C 3936  430C AD37 7A27 2348 72E2`) ve indirmelerde TLS
+  sertifikasını her zaman doğrular.
 
   ```
   atspkg guncelle          # depo dizinini indir
@@ -295,6 +326,14 @@ gelen paketlerle kalır. Yeni sürüm çıktığında yeniden kurmanız gerekir.
 - **apm** (bu depodaki [`apm/`](../apm)): bağımlılık çözen, kurulumu
   ya-hep-ya-hiç yapan ve başarısızlıkta geri alan prototip paket yöneticisi.
   Henüz ISO'da yoktur.
+
+### Firefox güncellemesi
+
+Firefox, Mozilla'nın resmi Linux sürümüdür (`/opt/firefox`). v36'dan itibaren
+uygulama menüsündeki **Firefox'u Güncelle** en yeni sürümü indirir, Mozilla'nın
+imzasını ve sha512 toplamını doğrular, sonra kurar (parolanız sorulur; Firefox
+açıksa önce kapatın). Uçbirimden: `atasos-firefox-guncelle`. Firefox'un kendi
+içindeki güncelleme kapalıdır.
 
 ### Flatpak ve Steam
 
@@ -338,7 +377,8 @@ başlatın.
 | **AMD dizüstülerde dahili mikrofon** (SoundWire / ACP) çalışmıyor | Çekirdekte ASoC desteği kapalı. Kulaklık ve USB mikrofon çalışır. |
 | **NVIDIA'nın kendi sürücüsü** yok | Açık kaynak nouveau kullanılır; yeni NVIDIA kartlarda 3B hızlandırma sınırlıdır. |
 | **Steam** doğrudan kurulamaz (32 bit kütüphane yok) | Flatpak ile kurulur; bkz. [Flatpak ve Steam](#flatpak-ve-steam). |
-| **Güncelleme kanalı** yok | Bkz. [Paketler ve güncelleme](#9-paketler-ve-güncelleme). |
+| **Güncelleme kanalı** henüz paket sunmuyor | İmzalı kanalın altyapısı v36'da hazır (atspkg 0.3.0); paketler eklenecek. Firefox menüden güncellenir. Bkz. [Paketler ve güncelleme](#9-paketler-ve-güncelleme). |
+| **Disk şifreleme** (LUKS) yok | Initramfs olmadığı için şifreli kök açılamaz; v36'da seçenek gizlendi. |
 | Gerçek donanımda **sınırlı test** | Kurulum testleri sanal makinede yapıldı. Sorun bildirirseniz düzeltilir. |
 
 Sorun bildirmek için: <https://github.com/johntitor08/atasos-tools/issues>.
@@ -387,7 +427,7 @@ numaralı betiklerle yapılır
 derler. Initramfs kullanılmaz: açılış için gereken sürücüler (NVMe, SATA,
 ext4…) çekirdeğe gömülüdür.
 
-**Canlı ISO** (`atasos-74-v35-iso.sh`):
+**Canlı ISO** (`atasos-81-v36-iso.sh`):
 
 1. Kaynak bölüm salt okunur kullanılır; ISO'ya özel değişiklikler bir overlay
    katmanında yapılır (canlı kullanıcı, otomatik giriş, kurulum programı
@@ -401,6 +441,9 @@ ext4…) çekirdeğe gömülüdür.
    `prompt-install: true`), sudo yetkisini, boş parola engelini, otomatik giriş
    adımını, EFI yedek önyükleyici ayarını, `root=PARTUUID` ayarını ve oturum
    ayarlarını denetler; biri eksikse ISO üretmez.
+6. v36'dan itibaren Calamares 3.3.14 resmi kaynağından, atasOS yamasıyla
+   ([`atasos-calamares-3.3.14.patch`](../scripts/2026-11-rebuild/atasos-calamares-3.3.14.patch))
+   aynı overlay içinde derlenir; kaynak sisteme yine dokunulmaz.
 
 **Yayın.** `atasos-63-archive-yukle.sh` ISO'yu archive.org'a yükler, indirme
 adresini ve sha256'yı doğrular, ancak bundan sonra eski sürümleri (tek tek
@@ -418,7 +461,8 @@ son bir onay ister.
 
 | Sürüm | Tarih | Değişiklikler |
 |---|---|---|
-| **v35** | 2026-11-14 | Kurulum, EFI bölümündeki başka bir sistemin yedek önyükleyicisinin (`EFI/BOOT/BOOTX64.EFI`, ör. Kubuntu'nun) üstüne yazmaz, yalnızca yoksa yazar; kurulan GRUB sistemi `root=PARTUUID=` ile açar (önceden aygıt adıyla, ör. `/dev/nvme0n1p4`; disk sırası değişince açılmazdı). Sanal NVMe diskte dört bölümleme seçeneğinin hepsiyle denendi. |
+| **v36** | 2026-11-17 | Yamalı Calamares: "Yanına kur" ile açılan bölüm 1 MiB sınırından başlar, çubuğun varsayılanı bölümdeki verinin altına inmez, "Diski sil" son onayında silinecek disk kırmızı uyarıyla yazılır, disk şifreleme seçeneği gizlendi (initramfs olmadığı için şifreli sistem açılmıyordu). Menüde **Firefox'u Güncelle**. atspkg 0.3.0: depo dizini imzalı olmak zorunda, indirmelerde TLS her zaman doğrulanır. Tek sistemli diskte GRUB menüsü gizli (Esc ile açılır). |
+| v35 | 2026-11-14 | Kurulum, EFI bölümündeki başka bir sistemin yedek önyükleyicisinin (`EFI/BOOT/BOOTX64.EFI`, ör. Kubuntu'nun) üstüne yazmaz, yalnızca yoksa yazar; kurulan GRUB sistemi `root=PARTUUID=` ile açar (önceden aygıt adıyla, ör. `/dev/nvme0n1p4`; disk sırası değişince açılmazdı). Sanal NVMe diskte dört bölümleme seçeneğinin hepsiyle denendi. |
 | v34 | 2026-11-13 | Kurulumda boş parola kabul edilmez (v33 boş parolayla kurulan sisteme girilemiyordu); "Parolayı sormadan kendiliğinden oturum aç" seçeneği artık çalışır. |
 | v33 | 2026-11-08 | Flatpak 1.16.1 ve Flathub deposu (Steam Flatpak ile kurulur). |
 | v32 | 2026-11-08 | Wayland oturumu giriş ekranında gizlendi (açılmıyordu ve yeni kullanıcılar için seçili geliyordu). |
@@ -427,4 +471,4 @@ son bir onay ister.
 | v29 | 2026-11-07 | Disk silinmesinin ardından yeniden kurulan sistemden ilk ISO. |
 | v13–v20 | 2026-07 – 2026-09 | İlk canlı ISO'lar ve Calamares kurulumu. |
 
-Yalnızca en son sürüm (v35) indirilebilir.
+Yalnızca en son sürüm (v36) indirilebilir.

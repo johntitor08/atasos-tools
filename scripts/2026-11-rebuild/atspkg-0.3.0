@@ -1,0 +1,603 @@
+#!/bin/bash
+# atspkg — atasOS paket yöneticisi
+# LFS tabanlı atasOS için basit, dosya-listesi tabanlı paket sistemi.
+# Paket biçimi: <ad>-<sürüm>-<yayın>.atspkg.tar.zst
+#   İçerik: .PKGINFO (metaveri), isteğe bağlı .INSTALL (kanca betiği),
+#   ve / köküne göre göreli dosyalar (usr/bin/... gibi).
+# Veritabanı: /var/lib/atspkg/db/<ad>/{PKGINFO,files,sums,INSTALL}
+# Test için: ATSPKG_ROOT=/sahte/kok atspkg ...  (gerçek köke dokunmaz)
+
+set -u
+
+ATSPKG_VERSION="0.3.0"
+
+ROOT="${ATSPKG_ROOT:-}"
+DBDIR="$ROOT/var/lib/atspkg/db"
+IDXFILE="$ROOT/var/lib/atspkg/index"
+CACHEDIR="$ROOT/var/cache/atspkg"
+CONFFILE="$ROOT/etc/atspkg/atspkg.conf"
+LOCKFILE="$ROOT/var/lib/atspkg/kilit"
+# 0.3.0: depo dizini (atspkg.index) imzalı olmak zorunda; açık anahtar ISO ile gelir
+KEYRING="$ROOT/usr/share/atspkg/depo-anahtari.gpg"
+
+if [ -t 1 ]; then
+    B=$'\e[1m'; G=$'\e[32m'; R=$'\e[31m'; Y=$'\e[33m'; N=$'\e[0m'
+else
+    B=; G=; R=; Y=; N=;
+fi
+
+mesaj()  { echo "${G}==>${N}${B} $*${N}"; }
+detay()  { echo "    $*"; }
+uyari()  { echo "${Y}uyarı:${N} $*" >&2; }
+hata()   { echo "${R}hata:${N} $*" >&2; exit 1; }
+
+ZORLA=0          # --zorla / --force: bağımlılık denetimlerini atla
+
+GECICILER=()
+temizle() { rm -rf ${GECICILER[@]+"${GECICILER[@]}"}; }
+trap temizle EXIT
+
+kok_gerek() {
+    # Gerçek köke yazacak komutlar için root şartı (ATSPKG_ROOT ile test serbest)
+    if [ -z "$ROOT" ] && [ "$(id -u)" != 0 ]; then
+        hata "bu komut root ister (deneme için ATSPKG_ROOT ayarlayın)"
+    fi
+}
+
+kilitle() {
+    mkdir -p "${LOCKFILE%/*}"
+    exec 9>"$LOCKFILE"
+    flock -n 9 || hata "başka bir atspkg çalışıyor (kilit: $LOCKFILE)"
+}
+
+db_hazirla() { mkdir -p "$DBDIR" "$CACHEDIR"; }
+
+pkginfo_al() { # dosya anahtar -> değer(ler)
+    sed -n "s/^$2 = //p" "$1"
+}
+
+indir() { # url hedef
+    # 0.3.0: TLS sertifikası HER ZAMAN doğrulanır (atasOS'ta /etc/ssl/certs/ca-certificates.crt var);
+    # 0.2.0'daki doğrulamasız (-k / --no-check-certificate) indirme kaldırıldı.
+    local url=$1 hedef=$2
+    case "$url" in https://*) ;; *) uyari "yalnız https kabul edilir: $url"; return 1 ;; esac
+    mesaj "indiriliyor: $url"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL --proto '=https' --proto-redir '=https' -o "$hedef" "$url" && return 0
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q --https-only -O "$hedef" "$url" && return 0
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 - "$url" "$hedef" <<'PYEOF' && return 0
+import ssl, sys, urllib.request
+ctx = ssl.create_default_context()
+with urllib.request.urlopen(sys.argv[1], context=ctx) as r, open(sys.argv[2], "wb") as f:
+    while True:
+        b = r.read(65536)
+        if not b:
+            break
+        f.write(b)
+PYEOF
+    fi
+    rm -f "$hedef"
+    return 1
+}
+
+dizin_dogrula() { # yerel dizin, ISO ile gelen anahtarla imzalı mı (her kullanımda)
+    [ -f "$IDXFILE" ] || hata "paket dizini yok; önce 'atspkg guncelle' çalıştırın"
+    gpgv --keyring "$KEYRING" "$IDXFILE.sig" "$IDXFILE" >/dev/null 2>&1 \
+        || hata "paket dizini imzasız ya da imzası geçersiz; 'atspkg guncelle' çalıştırın"
+}
+
+yol_denetle() { # paket içi dosya listesinde tehlikeli yol var mı
+    if grep -qE '(^|/)\.\.(/|$)|^/' "$1"; then
+        hata "pakette güvensiz yol var (.. veya mutlak yol) — kurulmadı"
+    fi
+}
+
+baglanti_denetle() { # paket-dosyası: kurulum kökünü aşan symlink hedefi var mı
+    # GNU tar zaten symlink ÜZERİNDEN yazmayı reddeder; bu, kök dışına
+    # işaret eden bir symlink'in kurulmadan önce temiz reddi (yarım açılmaz).
+    # Mutlak hedef güvenli (kurulum kökünün altına düşer); yalnızca yeterince
+    # '..' ile kökün üstüne çıkan GÖRELİ hedefler reddedilir.
+    local kotu
+    kotu=$(LC_ALL=C tar -tvf "$1" 2>/dev/null | awk '
+      /^l/ {
+        i = index($0, " -> "); if (i==0) next
+        left = substr($0,1,i-1); T = substr($0,i+4)
+        P = left; sub(/^([^ ]+ +){5}/, "", P)   # mode owner size date time atla
+        if (T ~ /^\//) next                       # mutlak: kök altında kalır
+        n = split(P, pc, "/"); depth = n-1
+        m = split(T, tc, "/")
+        for (j=1;j<=m;j++){
+          if (tc[j]==".."){ depth--; if(depth<0){ print P" -> "T; next } }
+          else if (tc[j]!="." && tc[j]!="") depth++
+        }
+      }')
+    [ -z "$kotu" ] || hata "pakette kök dışına kaçan symlink var — kurulmadı:"$'\n'"$kotu"
+}
+
+kanca_calistir() { # kanca_dosyasi fonksiyon [arg...]
+    local betik=$1 fn=$2; shift 2
+    [ -f "$betik" ] || return 0
+    if [ -n "$ROOT" ]; then
+        uyari "ATSPKG_ROOT ayarlı — '$fn' kancası atlandı"
+        return 0
+    fi
+    # Yol/fonksiyon adı ASLA string olarak gömülmez (komut enjeksiyonu):
+    # betik ve fn pozisyonel argüman olarak geçirilir.
+    if bash -c '. "$1"; declare -F "$2" >/dev/null' _ "$betik" "$fn"; then
+        mesaj "kanca çalıştırılıyor: $fn"
+        ( cd / && bash -c '. "$1"; fn=$2; shift 2; "$fn" "$@"' _ "$betik" "$fn" "$@" ) \
+            || uyari "$fn kancası hata verdi (yoksayıldı)"
+    fi
+}
+
+surum_yeni_mi() { # eski yeni -> yeni gerçekten daha yeniyse 0
+    [ "$1" = "$2" ] && return 1
+    [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" = "$2" ]
+}
+
+# ---------------------------------------------------------------- derle
+cmd_derle() {
+    local tarifdir=${1:-.}
+    tarifdir=$(realpath "$tarifdir")
+    [ -f "$tarifdir/tarif" ] || hata "$tarifdir/tarif bulunamadı"
+
+    name= version= release=1 description=
+    depends=(); source=()
+    . "$tarifdir/tarif"
+    [ -n "$name" ] && [ -n "$version" ] || hata "tarifte name/version eksik"
+    declare -F build >/dev/null || hata "tarifte build() fonksiyonu yok"
+
+    local workdir="$tarifdir/work" srcdir pkgdir
+    srcdir="$workdir/src"; pkgdir="$workdir/pkg"
+    rm -rf "$workdir"
+    mkdir -p "$srcdir" "$pkgdir"
+
+    # kaynakları getir + arşivleri aç
+    local s dosya
+    for s in ${source[@]+"${source[@]}"}; do
+        case $s in
+            *://*)
+                dosya="$tarifdir/$(basename "$s")"
+                [ -f "$dosya" ] || indir "$s" "$dosya" || hata "indirilemedi: $s"
+                ;;
+            *)  dosya="$tarifdir/$s"
+                [ -e "$dosya" ] || hata "kaynak yok: $dosya"
+                ;;
+        esac
+        case $dosya in
+            *.tar|*.tar.*|*.tgz|*.txz) tar -xf "$dosya" -C "$srcdir" ;;
+            *) cp -a "$dosya" "$srcdir/" ;;
+        esac
+    done
+
+    # tek bir alt dizin açıldıysa build() oraya girsin
+    local builddir="$srcdir"
+    local girdiler=("$srcdir"/*)
+    if [ ${#girdiler[@]} -eq 1 ] && [ -d "${girdiler[0]}" ]; then
+        builddir="${girdiler[0]}"
+    fi
+
+    mesaj "derleniyor: $name $version-$release"
+    ( set -e; cd "$builddir"; srcdir="$srcdir" pkgdir="$pkgdir" build ) \
+        || hata "build() başarısız"
+
+    find "$pkgdir" -mindepth 1 -print -quit | grep -q . || hata "pkgdir boş — build() hiçbir şey kurmadı"
+
+    # metaveri
+    {
+        echo "name = $name"
+        echo "version = $version"
+        echo "release = $release"
+        echo "description = $description"
+        local d; for d in ${depends[@]+"${depends[@]}"}; do echo "depend = $d"; done
+        echo "builddate = $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "size = $(du -sk "$pkgdir" | cut -f1) KiB"
+    } > "$pkgdir/.PKGINFO"
+    [ -f "$tarifdir/kancalar" ] && cp "$tarifdir/kancalar" "$pkgdir/.INSTALL"
+
+    local paket="$tarifdir/$name-$version-$release.atspkg.tar.zst"
+    # dotglob: pkgdir kökündeki gizli dosyalar da paketlensin. .PKGINFO/.INSTALL
+    # başta ve tek kez yer alsın diye onları listeden döngüyle ayıklıyoruz
+    # (extglob '!(...)' parse anında çözüldüğü için burada kullanılamaz).
+    (
+        cd "$pkgdir" && shopt -s dotglob nullglob
+        digerleri=()
+        for x in *; do
+            case $x in .PKGINFO|.INSTALL) ;; *) digerleri+=("$x") ;; esac
+        done
+        tar --owner=0 --group=0 -caf "$paket" \
+            .PKGINFO $( [ -f .INSTALL ] && echo .INSTALL ) \
+            -- ${digerleri[@]+"${digerleri[@]}"}
+    ) || hata "paketleme başarısız"
+    mesaj "paket hazır: $paket"
+}
+
+# ---------------------------------------------------------------- kur
+paket_dosyasi_kur() {
+    local pkg=$1
+    local tmp; tmp=$(mktemp -d)
+    GECICILER+=("$tmp")
+
+    tar -xf "$pkg" -C "$tmp" .PKGINFO 2>/dev/null \
+        || hata "geçersiz paket (.PKGINFO yok): $pkg"
+    tar -xf "$pkg" -C "$tmp" .INSTALL 2>/dev/null || true
+
+    local name version release
+    name=$(pkginfo_al "$tmp/.PKGINFO" name)
+    version=$(pkginfo_al "$tmp/.PKGINFO" version)
+    release=$(pkginfo_al "$tmp/.PKGINFO" release)
+    [ -n "$name" ] || hata "pakette ad yok"
+
+    # bağımlılık denetimi
+    local eksik=() d
+    while IFS= read -r d; do
+        [ -n "$d" ] && [ ! -d "$DBDIR/$d" ] && eksik+=("$d")
+    done < <(pkginfo_al "$tmp/.PKGINFO" depend)
+    if [ ${#eksik[@]} -gt 0 ] && [ "$ZORLA" != 1 ]; then
+        hata "eksik bağımlılıklar: ${eksik[*]}  (--zorla ile yine de kurabilirsiniz)"
+    fi
+
+    # dosya listesi + güvenlik denetimi
+    tar -tf "$pkg" | sed 's|^\./||' \
+        | grep -vx -e '.PKGINFO' -e '.INSTALL' -e '.' -e '' > "$tmp/files.new"
+    yol_denetle "$tmp/files.new"
+    baglanti_denetle "$pkg"
+
+    local eski=""
+    if [ -d "$DBDIR/$name" ]; then
+        eski=$(pkginfo_al "$DBDIR/$name/PKGINFO" version)-$(pkginfo_al "$DBDIR/$name/PKGINFO" release)
+        mesaj "yükseltiliyor: $name $eski -> $version-$release"
+        cp "$DBDIR/$name/files" "$tmp/files.old"
+    else
+        mesaj "kuruluyor: $name $version-$release"
+    fi
+
+    tar -xpf "$pkg" -C "${ROOT:-/}" --keep-directory-symlink \
+        --exclude=.PKGINFO --exclude=.INSTALL \
+        || hata "açma başarısız — sistem yarım kalmış olabilir!"
+
+    # sağlama toplamları (normal dosyalar)
+    : > "$tmp/sums"
+    local f hedef
+    while IFS= read -r f; do
+        case $f in */) continue ;; esac
+        hedef="${ROOT:-}/$f"
+        if [ -f "$hedef" ] && [ ! -L "$hedef" ]; then
+            echo "$(sha256sum < "$hedef" | cut -d' ' -f1)  $f" >> "$tmp/sums"
+        fi
+    done < "$tmp/files.new"
+
+    # veritabanına işle
+    mkdir -p "$DBDIR/$name"
+    cp "$tmp/.PKGINFO"  "$DBDIR/$name/PKGINFO"
+    cp "$tmp/files.new" "$DBDIR/$name/files"
+    cp "$tmp/sums"      "$DBDIR/$name/sums"
+    rm -f "$DBDIR/$name/INSTALL"
+    [ -f "$tmp/.INSTALL" ] && cp "$tmp/.INSTALL" "$DBDIR/$name/INSTALL"
+
+    # yükseltmede artık pakette olmayan eski dosyaları temizle
+    if [ -n "$eski" ]; then
+        local artik
+        artik=$(grep -vxF -f "$tmp/files.new" "$tmp/files.old" || true)
+        if [ -n "$artik" ]; then
+            while IFS= read -r f; do
+                case $f in */) ;; *) rm -f -- "${ROOT:-}/$f" ;; esac
+            done <<< "$artik"
+            while IFS= read -r f; do
+                case $f in */) rmdir --ignore-fail-on-non-empty -- "${ROOT:-}/$f" 2>/dev/null ;; esac
+            done <<< "$(sort -r <<< "$artik")"
+            detay "eski sürümden kalan $(wc -l <<< "$artik") yol temizlendi"
+        fi
+    fi
+
+    kanca_calistir "$DBDIR/$name/INSTALL" kurulum_sonrasi "$version"
+    mesaj "tamam: $name $version-$release"
+}
+
+depo_bul() { # ad -> index satırı (en yeni sürüm)
+    [ -f "$IDXFILE" ] || return 1
+    awk -v n="$1" '$1 == n' "$IDXFILE" | sort -k2,2V -k3,3n | tail -n1
+    # boş çıktı = bulunamadı; çağıran denetler
+}
+
+depo_url() {
+    [ -f "$CONFFILE" ] || return 1
+    sed -n 's/^DEPO=//p' "$CONFFILE" | tail -n1
+}
+
+cmd_kur() {
+    [ $# -ge 1 ] || hata "kullanım: atspkg kur <paket.atspkg.tar.zst | ad>..."
+    kok_gerek; kilitle; db_hazirla
+    local p
+    for p in "$@"; do
+        if [ -f "$p" ]; then
+            paket_dosyasi_kur "$p"
+            continue
+        fi
+        # dosya değil: depodan ada göre kur (0.3.0: önce dizin imzası)
+        dizin_dogrula
+        local satir ad surum yayin dosya beklenen depo
+        satir=$(depo_bul "$p") || true
+        [ -n "${satir:-}" ] || hata "'$p' ne dosya ne de dizindeki bir paket (önce 'atspkg guncelle'?)"
+        read -r ad surum yayin dosya beklenen <<< "$satir"
+        depo=$(depo_url) || hata "depo tanımlı değil ($CONFFILE içine DEPO=<url> yazın)"
+        local hedef="$CACHEDIR/$dosya"
+        if [ ! -f "$hedef" ] || ! echo "$beklenen  $hedef" | sha256sum -c --quiet - 2>/dev/null; then
+            indir "$depo/$dosya" "$hedef" || hata "indirilemedi: $depo/$dosya"
+            echo "$beklenen  $hedef" | sha256sum -c --quiet - \
+                || { rm -f "$hedef"; hata "sağlama tutmadı: $dosya"; }
+        fi
+        paket_dosyasi_kur "$hedef"
+    done
+}
+
+# ---------------------------------------------------------------- sil
+cmd_sil() {
+    [ $# -ge 1 ] || hata "kullanım: atspkg sil <ad>..."
+    kok_gerek; kilitle; db_hazirla
+    local name
+    for name in "$@"; do
+        [ -d "$DBDIR/$name" ] || hata "kurulu değil: $name"
+
+        # ters bağımlılık denetimi
+        if [ "$ZORLA" != 1 ]; then
+            local sahipler=() p
+            for p in "$DBDIR"/*/PKGINFO; do
+                [ -f "$p" ] || continue
+                if pkginfo_al "$p" depend | grep -qx "$name"; then
+                    sahipler+=("$(pkginfo_al "$p" name)")
+                fi
+            done
+            [ ${#sahipler[@]} -eq 0 ] \
+                || hata "$name şu paketlerin bağımlılığı: ${sahipler[*]}  (--zorla ile silinebilir)"
+        fi
+
+        kanca_calistir "$DBDIR/$name/INSTALL" kaldirma_oncesi
+
+        mesaj "siliniyor: $name"
+        local f say=0
+        while IFS= read -r f; do
+            case $f in */) continue ;; esac
+            rm -f -- "${ROOT:-}/$f" && say=$((say+1))
+        done < "$DBDIR/$name/files"
+        while IFS= read -r f; do
+            case $f in */) rmdir --ignore-fail-on-non-empty -- "${ROOT:-}/$f" 2>/dev/null ;; esac
+        done < <(sort -r "$DBDIR/$name/files")
+        detay "$say dosya kaldırıldı"
+
+        kanca_calistir "$DBDIR/$name/INSTALL" kaldirma_sonrasi
+        rm -rf "${DBDIR:?}/$name"
+        mesaj "silindi: $name"
+    done
+}
+
+# ---------------------------------------------------------------- kaydet
+cmd_kaydet() {
+    # Elle kurulmuş (atspkg öncesi) yazılımı dosyalarına DOKUNMADAN
+    # veritabanına alır; sonrasında sil/dogrula/sahip normal çalışır.
+    [ $# -ge 3 ] || hata "kullanım: atspkg kaydet <ad> <sürüm> <dosya-listesi> [açıklama]"
+    local ad=$1 surum=$2 liste=$3; shift 3
+    local aciklama=${*:-"elle kurulmuş; atspkg kaydet ile eklendi"}
+    kok_gerek; kilitle; db_hazirla
+    [ -f "$liste" ] || hata "liste dosyası yok: $liste"
+    if [ -d "$DBDIR/$ad" ] && [ "$ZORLA" != 1 ]; then
+        hata "zaten kayıtlı: $ad (--zorla ile üzerine yazılır)"
+    fi
+
+    local tmp; tmp=$(mktemp -d); GECICILER+=("$tmp")
+    : > "$tmp/files"; : > "$tmp/sums"
+    local satir p full eksik=0 bayt=0
+    while IFS= read -r satir; do
+        [ -n "$satir" ] || continue
+        case $satir in \#*) continue ;; esac
+        p=${satir#"$ROOT"}; p=${p#/}
+        full="${ROOT:-}/$p"
+        if [ ! -e "$full" ] && [ ! -L "$full" ]; then
+            uyari "yok, atlandı: /$p"; eksik=$((eksik+1)); continue
+        fi
+        if [ -d "$full" ] && [ ! -L "$full" ]; then
+            echo "$p/" >> "$tmp/files"
+        else
+            echo "$p" >> "$tmp/files"
+            if [ -f "$full" ] && [ ! -L "$full" ]; then
+                echo "$(sha256sum < "$full" | cut -d' ' -f1)  $p" >> "$tmp/sums"
+                bayt=$((bayt + $(stat -c %s "$full")))
+            fi
+        fi
+    done < "$liste"
+    grep -q . "$tmp/files" || hata "listede geçerli yol yok"
+
+    {
+        echo "name = $ad"
+        echo "version = $surum"
+        echo "release = 1"
+        echo "description = $aciklama"
+        echo "builddate = $(date -u '+%Y-%m-%d %H:%M:%S UTC') (kaydet)"
+        echo "size = $(( (bayt + 1023) / 1024 )) KiB"
+    } > "$tmp/PKGINFO"
+    mkdir -p "$DBDIR/$ad"
+    cp "$tmp/PKGINFO" "$DBDIR/$ad/PKGINFO"
+    cp "$tmp/files"   "$DBDIR/$ad/files"
+    cp "$tmp/sums"    "$DBDIR/$ad/sums"
+    mesaj "kaydedildi: $ad $surum ($(grep -cv '/$' "$tmp/files") dosya)"
+    [ "$eksik" -gt 0 ] && uyari "$eksik yol bulunamadı, atlandı"
+    return 0
+}
+
+# ---------------------------------------------------------------- sorgular
+cmd_listele() {
+    db_hazirla
+    local p
+    for p in "$DBDIR"/*/PKGINFO; do
+        [ -f "$p" ] || { echo "(hiç paket kurulu değil)"; return; }
+        printf '%s %s-%s\n' "$(pkginfo_al "$p" name)" \
+            "$(pkginfo_al "$p" version)" "$(pkginfo_al "$p" release)"
+    done
+}
+
+cmd_bilgi() {
+    [ $# -eq 1 ] || hata "kullanım: atspkg bilgi <ad>"
+    [ -f "$DBDIR/$1/PKGINFO" ] || hata "kurulu değil: $1"
+    local p="$DBDIR/$1/PKGINFO"
+    echo "${B}Ad         :${N} $(pkginfo_al "$p" name)"
+    echo "${B}Sürüm      :${N} $(pkginfo_al "$p" version)-$(pkginfo_al "$p" release)"
+    echo "${B}Açıklama   :${N} $(pkginfo_al "$p" description)"
+    echo "${B}Bağımlılık :${N} $(pkginfo_al "$p" depend | tr '\n' ' ')"
+    echo "${B}Derlenme   :${N} $(pkginfo_al "$p" builddate)"
+    echo "${B}Boyut      :${N} $(pkginfo_al "$p" size)"
+    echo "${B}Dosya      :${N} $(grep -cv '/$' "$DBDIR/$1/files") adet"
+}
+
+cmd_dosyalar() {
+    [ $# -eq 1 ] || hata "kullanım: atspkg dosyalar <ad>"
+    [ -f "$DBDIR/$1/files" ] || hata "kurulu değil: $1"
+    sed 's|^|/|' "$DBDIR/$1/files"
+}
+
+cmd_sahip() {
+    [ $# -eq 1 ] || hata "kullanım: atspkg sahip <yol>"
+    local yol=$1
+    yol=${yol#"$ROOT"}; yol=${yol#/}
+    local d bulundu=0
+    for d in "$DBDIR"/*/files; do
+        [ -f "$d" ] || continue
+        if grep -qxF -e "$yol" -e "$yol/" "$d"; then
+            echo "/$yol -> $(basename "$(dirname "$d")")"
+            bulundu=1
+        fi
+    done
+    [ $bulundu -eq 1 ] || { echo "/$yol hiçbir pakete ait değil"; return 1; }
+}
+
+cmd_dogrula() {
+    [ $# -ge 1 ] || hata "kullanım: atspkg dogrula <ad>..."
+    local name durum=0
+    for name in "$@"; do
+        [ -f "$DBDIR/$name/sums" ] || hata "kurulu değil: $name"
+        if ( cd "${ROOT:-/}" && sha256sum -c --quiet "$DBDIR/$name/sums" ); then
+            mesaj "$name: bütün dosyalar sağlam"
+        else
+            uyari "$name: yukarıdaki dosyalar değişmiş/bozuk"
+            durum=1
+        fi
+    done
+    return $durum
+}
+
+cmd_ara() {
+    [ $# -eq 1 ] || hata "kullanım: atspkg ara <desen>"
+    local p
+    for p in "$DBDIR"/*/PKGINFO; do
+        [ -f "$p" ] || continue
+        if pkginfo_al "$p" name | grep -qi -- "$1" \
+           || pkginfo_al "$p" description | grep -qi -- "$1"; then
+            printf '[kurulu] %s %s-%s — %s\n' "$(pkginfo_al "$p" name)" \
+                "$(pkginfo_al "$p" version)" "$(pkginfo_al "$p" release)" \
+                "$(pkginfo_al "$p" description)"
+        fi
+    done
+    [ -f "$IDXFILE" ] && awk -v d="$1" 'tolower($1) ~ tolower(d) \
+        { printf "[depo]   %s %s-%s\n", $1, $2, $3 }' "$IDXFILE"
+    return 0
+}
+
+# ---------------------------------------------------------------- depo
+cmd_guncelle() {
+    kok_gerek; db_hazirla
+    local depo; depo=$(depo_url) \
+        || hata "depo tanımlı değil ($CONFFILE içine DEPO=<url> yazın)"
+    [ -s "$KEYRING" ] || hata "depo açık anahtarı yok: $KEYRING"
+    command -v gpgv >/dev/null 2>&1 || hata "gpgv bulunamadı (imza denetimi için gerekli)"
+    indir "$depo/atspkg.index" "$IDXFILE.yeni" || hata "dizin indirilemedi"
+    indir "$depo/atspkg.index.sig" "$IDXFILE.yeni.sig" \
+        || { rm -f "$IDXFILE.yeni"; hata "dizin imzası (atspkg.index.sig) indirilemedi; eski dizin korunuyor"; }
+    # imza denetimi: yalnız ISO ile gelen anahtarla; geçersizse yeni dizin atılır, eski kalır
+    if ! gpgv --keyring "$KEYRING" "$IDXFILE.yeni.sig" "$IDXFILE.yeni" >/dev/null 2>&1; then
+        rm -f "$IDXFILE.yeni" "$IDXFILE.yeni.sig"
+        hata "dizin imzası GEÇERSİZ; eski dizin korunuyor (depo değiştirilmiş olabilir)"
+    fi
+    mv "$IDXFILE.yeni" "$IDXFILE"; mv "$IDXFILE.yeni.sig" "$IDXFILE.sig"
+    mesaj "paket dizini güncellendi ve imzası doğrulandı ($(wc -l < "$IDXFILE") kayıt)"
+}
+
+cmd_yukselt() {
+    kok_gerek; db_hazirla
+    [ -f "$IDXFILE" ] || hata "önce 'atspkg guncelle' çalıştırın"
+    dizin_dogrula
+    local p ad kurulu satir yeni sayi=0
+    for p in "$DBDIR"/*/PKGINFO; do
+        [ -f "$p" ] || continue
+        ad=$(pkginfo_al "$p" name)
+        kurulu="$(pkginfo_al "$p" version)-$(pkginfo_al "$p" release)"
+        satir=$(depo_bul "$ad"); [ -n "$satir" ] || continue
+        yeni="$(awk '{print $2"-"$3}' <<< "$satir")"
+        if surum_yeni_mi "$kurulu" "$yeni"; then
+            mesaj "$ad: $kurulu -> $yeni"
+            cmd_kur "$ad"
+            sayi=$((sayi+1))
+        fi
+    done
+    [ $sayi -eq 0 ] && mesaj "her şey güncel" || mesaj "$sayi paket yükseltildi"
+}
+
+# ---------------------------------------------------------------- yardım
+cmd_yardim() {
+    cat <<EOF
+${B}atspkg $ATSPKG_VERSION — atasOS paket yöneticisi${N}
+
+Kullanım: atspkg <komut> [seçenekler] [argümanlar]
+
+Komutlar (İngilizce eşleri de geçerli):
+  derle    <tarif-dizini>   tariften .atspkg.tar.zst paketi üret   (build)
+  kur      <dosya|ad>...    paket kur / yükselt                    (install)
+  sil      <ad>...          paketi ve dosyalarını kaldır           (remove)
+  listele                   kurulu paketleri listele               (list)
+  bilgi    <ad>             paket metaverisini göster              (info)
+  dosyalar <ad>             paketin kurduğu dosyaları göster       (files)
+  sahip    <yol>            dosya hangi pakete ait                 (owner)
+  dogrula  <ad>...          dosyaları sağlama toplamıyla denetle   (verify)
+  ara      <desen>          kurulu + depoda paket ara              (search)
+  kaydet   <ad> <sürüm> <liste> [açıklama]
+                            elle kurulmuş yazılımı DB'ye al        (adopt)
+  guncelle                  depo paket dizinini indir              (update)
+  yukselt                   dizindeki yeni sürümleri kur           (upgrade)
+
+Seçenekler:
+  --zorla | --force         bağımlılık denetimlerini atla
+  ATSPKG_ROOT=<dizin>       işlemleri sahte köke uygula (deneme/kurtarma)
+
+Depo: $CONFFILE içine  DEPO=<url>  satırı; depoda atspkg.index
+(satır biçimi: ad sürüm yayın dosyaadı sha256) ve paket dosyaları durur.
+EOF
+}
+
+# ---------------------------------------------------------------- giriş
+ARGV=()
+for a in "$@"; do
+    case $a in
+        --zorla|--force) ZORLA=1 ;;
+        *) ARGV+=("$a") ;;
+    esac
+done
+set -- ${ARGV[@]+"${ARGV[@]}"}
+
+komut=${1:-yardim}; shift || true
+case $komut in
+    derle|build)      cmd_derle "$@" ;;
+    kur|install)      cmd_kur "$@" ;;
+    sil|remove)       cmd_sil "$@" ;;
+    listele|list)     cmd_listele "$@" ;;
+    bilgi|info)       cmd_bilgi "$@" ;;
+    dosyalar|files)   cmd_dosyalar "$@" ;;
+    sahip|owner)      cmd_sahip "$@" ;;
+    dogrula|verify)   cmd_dogrula "$@" ;;
+    ara|search)       cmd_ara "$@" ;;
+    kaydet|adopt)     cmd_kaydet "$@" ;;
+    guncelle|update)  cmd_guncelle "$@" ;;
+    yukselt|upgrade)  cmd_yukselt "$@" ;;
+    surum|version)    echo "atspkg $ATSPKG_VERSION" ;;
+    yardim|help|-h|--help) cmd_yardim ;;
+    *) hata "bilinmeyen komut: $komut (bkz. 'atspkg yardim')" ;;
+esac
