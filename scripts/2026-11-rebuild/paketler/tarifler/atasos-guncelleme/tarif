@@ -1,0 +1,15 @@
+# atasOS tarifi: "Sistemi Guncelle" (atasos-guncelle + menu + polkit + temel paket listesi).
+# v36'da bir kez elle: sudo atspkg guncelle && sudo atspkg kur atasos-guncelleme ; sonra menuden "Sistemi Guncelle".
+name=atasos-guncelleme
+version=1.0
+release=1
+description="atasOS sistem guncelleyicisi (Sistemi Guncelle menusu)"
+depends=(atspkg)
+source=(atasos-guncelle atasos-guncelle.desktop org.atasos.guncelle.policy temel.list)
+
+build() {
+    install -Dm755 "$srcdir/atasos-guncelle"            "$pkgdir/usr/bin/atasos-guncelle"
+    install -Dm644 "$srcdir/atasos-guncelle.desktop"    "$pkgdir/usr/share/applications/atasos-guncelle.desktop"
+    install -Dm644 "$srcdir/org.atasos.guncelle.policy" "$pkgdir/usr/share/polkit-1/actions/org.atasos.guncelle.policy"
+    install -Dm644 "$srcdir/temel.list"                 "$pkgdir/usr/share/atasos-guncelleme/temel.list"
+}

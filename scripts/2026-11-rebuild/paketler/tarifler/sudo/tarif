@@ -1,0 +1,22 @@
+# atasOS tarifi: sudo (v36'da 1.9.16p2; 1.9.17p1 'sudo --chroot' ile yerel root olma acigini kapatir).
+# Ozgun derleme PAM'SIZ (sifre /etc/shadow'dan, libcrypt). Yeni derleme sistemde libpam'i gorup PAM'i kendiliginden
+# acardi; /etc/pam.d/sudo olmadigi icin sudo kilitlenebilirdi -> --without-pam ZORUNLU.
+# Yapilandirma (/etc/sudoers, /etc/sudo.conf, /etc/sudo_logsrvd.conf, /etc/sudoers.d) pakete GIRMEZ; yalniz .dist ornekleri.
+name=sudo
+version=1.9.17p2
+release=1
+description="sudo - yonetici komutlari (guvenlik guncellemesi: --chroot acigi)"
+depends=()
+source=(sudo-1.9.17p2.tar.gz)
+
+build() {
+    ./configure --prefix=/usr --libexecdir=/usr/lib \
+                --with-secure-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+                --without-pam
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    rm -f "$pkgdir"/etc/sudoers "$pkgdir"/etc/sudo.conf "$pkgdir"/etc/sudo_logsrvd.conf
+    rm -rf "$pkgdir"/etc/sudoers.d "$pkgdir"/var "$pkgdir"/run
+    # setuid bit korunmali
+    [ -u "$pkgdir/usr/bin/sudo" ] || { echo "sudo setuid degil"; exit 1; }
+}

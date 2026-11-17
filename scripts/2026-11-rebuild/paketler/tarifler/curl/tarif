@@ -1,0 +1,16 @@
+# atasOS tarifi: curl (v36'da 8.11.1). Ozgun: --prefix=/usr --disable-static --with-openssl.
+# Sistemde libnghttp2 ve libidn2 var -> bu surumde HTTP/2 ve IDN de acilir. CA dosyasi atasOS'unki.
+name=curl
+version=8.23.0
+release=1
+description="curl ve libcurl (URL aktarim kutuphanesi) - guvenlik guncellemesi"
+depends=()
+source=(curl-8.23.0.tar.xz)
+
+build() {
+    ./configure --prefix=/usr --disable-static --with-openssl \
+                --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt --without-ca-path
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    rm -f "$pkgdir"/usr/lib/libcurl.la
+}

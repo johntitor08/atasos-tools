@@ -301,8 +301,25 @@ sistem kurarsanız atasOS'ta `sudo grub-mkconfig -o /boot/grub/grub.cfg`
 
 ## 9. Paketler ve güncelleme
 
-atasOS'ta henüz düzenli bir güncelleme kanalı **yoktur**. Kurulu sistem, ISO'da
-gelen paketlerle kalır. Yeni sürüm çıktığında yeniden kurmanız gerekir.
+v36'dan itibaren atasOS'un **imzalı bir güncelleme kanalı** vardır: paketler
+archive.org'daki `atasos-depo` deposundan gelir, depo dizini atasOS depo
+anahtarıyla imzalıdır ve her paketin sha256 toplamı bu imzalı dizinde yazılıdır.
+
+**v36 kurduysanız bir kez** uçbirimde şunu çalıştırın (güncelleyiciyi kurar):
+
+```bash
+sudo atspkg guncelle && sudo atspkg kur atasos-guncelleme
+```
+
+Bundan sonra uygulama menüsündeki **Sistemi Güncelle** (ya da uçbirimde
+`atasos-guncelle`) güncellemeleri kurar: ilk çalıştırmada atasOS'un temel
+paketlerini (şimdilik OpenSSL, curl, sudo) yeni sürümleriyle değiştirir, sonra
+her çalıştırmada yeni sürümleri getirir. Parolanız sorulur. Güncellemeden sonra
+bilgisayarı yeniden başlatın.
+
+Şu an depoda: OpenSSL 3.5.9 (3.5 LTS güvenlik düzeltmeleri), curl 8.23.0,
+sudo 1.9.17p2 (`sudo --chroot` açığının düzeltmesi). Çekirdek, Plasma ve diğer
+kütüphaneler henüz depoda yoktur; onlar için yeni ISO gerekir.
 
 İki paket aracı geliştirme aşamasındadır:
 
@@ -377,7 +394,7 @@ başlatın.
 | **AMD dizüstülerde dahili mikrofon** (SoundWire / ACP) çalışmıyor | Çekirdekte ASoC desteği kapalı. Kulaklık ve USB mikrofon çalışır. |
 | **NVIDIA'nın kendi sürücüsü** yok | Açık kaynak nouveau kullanılır; yeni NVIDIA kartlarda 3B hızlandırma sınırlıdır. |
 | **Steam** doğrudan kurulamaz (32 bit kütüphane yok) | Flatpak ile kurulur; bkz. [Flatpak ve Steam](#flatpak-ve-steam). |
-| **Güncelleme kanalı** henüz paket sunmuyor | İmzalı kanalın altyapısı v36'da hazır (atspkg 0.3.0); paketler eklenecek. Firefox menüden güncellenir. Bkz. [Paketler ve güncelleme](#9-paketler-ve-güncelleme). |
+| **Güncelleme kanalı** yalnızca birkaç paket içerir | OpenSSL, curl ve sudo güncellenir (**Sistemi Güncelle**); çekirdek, Plasma ve diğerleri için yeni ISO gerekir. Firefox menüden güncellenir. Bkz. [Paketler ve güncelleme](#9-paketler-ve-güncelleme). |
 | **Disk şifreleme** (LUKS) yok | Initramfs olmadığı için şifreli kök açılamaz; v36'da seçenek gizlendi. |
 | Gerçek donanımda **sınırlı test** | Kurulum testleri sanal makinede yapıldı. Sorun bildirirseniz düzeltilir. |
 

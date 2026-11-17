@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>atasOS</vendor>
+  <action id="org.atasos.guncelle.run">
+    <description>Update the system</description>
+    <description xml:lang="tr">Sistemi guncelle</description>
+    <message>Authentication is required to update the system</message>
+    <message xml:lang="tr">Sistemi guncellemek icin parolaniz gerekiyor</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/atasos-guncelle</annotate>
+  </action>
+</policyconfig>

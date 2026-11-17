@@ -1,0 +1,53 @@
+#!/bin/bash
+# atasOS sistem guncellemesi: imzali depodan (atspkg 0.3.0+) guncellemeleri kurar.
+#   1) paket dizinini indirir ve imzasini dogrular (atspkg guncelle)
+#   2) bu guncelleyicinin yenisi varsa once onu kurar ve yeniden baslar
+#   3) temel listedeki (temel.list) paketlerden henuz atspkg'ye kayitli olmayanlari ilk kez kurar
+#      (atasOS'un ISO'dan gelen temel yazilimi atspkg veritabaninda yok; 'yukselt' onlari gormez)
+#   4) kayitli paketlerin yeni surumlerini kurar (atspkg yukselt)
+# Menu: "Sistemi Guncelle" (Konsole icinde; parola pkexec ile sorulur). Elle: atasos-guncelle
+set -uo pipefail
+export LC_ALL=C.UTF-8
+[ "$(id -u)" -eq 0 ] || exec pkexec /usr/bin/atasos-guncelle "$@"
+LISTE=/usr/share/atasos-guncelleme/temel.list
+DB=/var/lib/atspkg/db
+IDX=/var/lib/atspkg/index
+dur(){ echo; echo "  HATA: $*"; exit 1; }
+kurulu(){ [ -f "$DB/$1/PKGINFO" ] && awk -F' = ' '$1=="version"{v=$2} $1=="release"{r=$2} END{print v"-"r}' "$DB/$1/PKGINFO"; }
+dizinde(){ awk -v n="$1" '$1==n{print $2"-"$3}' "$IDX" | sort -V | tail -n1; }
+yeni_mi(){ [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" = "$2" ]; }
+
+echo "== atasOS sistem guncellemesi =="
+command -v atspkg >/dev/null || dur "atspkg yok"
+atspkg guncelle || dur "paket dizini alinamadi ya da imzasi gecersiz"
+
+if [ "${1:-}" != "--devam" ]; then
+    k=$(kurulu atasos-guncelleme); d=$(dizinde atasos-guncelleme)
+    if [ -n "$d" ] && { [ -z "$k" ] || yeni_mi "$k" "$d"; }; then
+        echo; echo "== guncelleyicinin yeni surumu: ${k:-yok} -> $d"
+        atspkg kur atasos-guncelleme || dur "guncelleyici kurulamadi"
+        exec /usr/bin/atasos-guncelle --devam
+    fi
+fi
+
+sayi=0
+if [ -f "$LISTE" ]; then
+    while read -r p _; do
+        case "$p" in ''|'#'*) continue ;; esac
+        [ -n "$(kurulu "$p")" ] && continue
+        d=$(dizinde "$p"); [ -n "$d" ] || continue
+        echo; echo "== ilk kez kuruluyor: $p $d"
+        atspkg kur "$p" || dur "$p kurulamadi"
+        sayi=$((sayi+1))
+    done < "$LISTE"
+fi
+echo; echo "== yukseltmeler"
+T=$(mktemp); atspkg yukselt 2>&1 | tee "$T"; rc=${PIPESTATUS[0]}
+[ $rc -eq 0 ] || { rm -f "$T"; dur "yukseltme basarisiz"; }
+sayi=$((sayi + $(grep -c 'yükseltiliyor:' "$T" || true))); rm -f "$T"
+echo
+if [ $sayi -gt 0 ]; then
+    echo "  TAMAM: $sayi paket kuruldu/guncellendi. Degisikliklerin tam etkili olmasi icin bilgisayari yeniden baslatin."
+else
+    echo "  TAMAM: sistem guncel."
+fi

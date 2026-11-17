@@ -1,0 +1,1 @@
+kurulum_sonrasi() { ldconfig 2>/dev/null || true; visudo -c >/dev/null 2>&1 || echo "UYARI: visudo -c hata verdi; /etc/sudoers'i denetleyin"; }

@@ -1,0 +1,5 @@
+# atasOS temel paketleri: ISO'dan gelen ama atspkg'ye kayitli olmayan yazilim.
+# atasos-guncelle bunlari depoda varsa ilk kez kurar; sonra 'atspkg yukselt' gunceller.
+openssl
+curl
+sudo

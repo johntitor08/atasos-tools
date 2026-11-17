@@ -1,0 +1,8 @@
+# Kaynak arsivleri: imza ust kaynagin anahtariyla dogrulandi (2026-11-17). atasos-82 derlemeden once sha256'yi denetler.
+603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a  openssl-3.5.9.tar.gz  # imza: OpenSSL B146647E45A7B33947AB226B2A2C87D161692D40 (openssl-library.org/source/pubkeys.asc)
+8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5  curl-8.23.0.tar.xz  # imza: Daniel Stenberg 27EDEAF22F3ABCEB50DB9A125CC908FDB71E12C2
+4a38a1ab3adb1199257edc2a7c4a2bd714665eb605b04368843b06dada2cfcfb  sudo-1.9.17p2.tar.gz  # imza: Todd C. Miller 59D1E9CCBA2B376704FDD35BA9F4C021CEA470FB
+33f0c26325ac16e541e56e2f028e5f827b919a7fa73628faca54d7e62b9c8367  atasos-guncelle  # atasOS'un kendi dosyasi (Claude yazdi)
+9c573c46d545decd60e746d95e438ab4f283f383418b05ff5a0f40bf79ee28ce  atasos-guncelle.desktop  # atasOS'un kendi dosyasi (Claude yazdi)
+fb886a01118f23e98a36f57dbcefb1b9d4ebec891bf07d8890cfec65f232559d  org.atasos.guncelle.policy  # atasOS'un kendi dosyasi (Claude yazdi)
+564f586dfbbccbf5b753d03e4635a56c446dfb3954702931f40135708a0bb55e  temel.list  # atasOS'un kendi dosyasi (Claude yazdi)

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Sistemi Güncelle
+Name[en]=Update System
+Comment=atasOS güncellemelerini imzalı depodan kurar
+Comment[en]=Installs atasOS updates from the signed repository
+Exec=konsole --hold -e /usr/bin/atasos-guncelle
+Icon=system-software-update
+Terminal=false
+Categories=System;
