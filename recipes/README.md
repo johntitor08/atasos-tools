@@ -88,6 +88,10 @@ dönüştürülecek ilk adaylar bunlar.
       kwriteconfig6 --file kglobalshortcutsrc --group services \
         --group org.flameshot.Flameshot.desktop --key Capture Print
       systemctl --user start plasma-kglobalaccel
+- Flameshot seçim penceresi panelin altında ve 60 px kısa kalıyor (KWin çalışma alanına sığdırıyor) →
+  `~/.config/kwinrulesrc` kuralı: wmclass=flameshot, types=256 (utility, ayar penceresi etkilenmez),
+  above/fullscreen/ignoregeometry zorla, position=0,0, size=3000,2000 (hepsi rule=2); sonra
+  `qdbus org.kde.KWin /KWin reconfigure`.
 - Gwenview varsayılan görüntüleyici: `kwriteconfig6 --file mimeapps.list --group "Default Applications" --key image/png org.kde.gwenview.desktop` (her image/* türü için).
 - `~/.config/user-dirs.dirs` ŞART (aşağıdaki tuzak):
       XDG_DESKTOP_DIR="$HOME/Desktop"
