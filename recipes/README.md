@@ -79,6 +79,10 @@ dönüştürülecek ilk adaylar bunlar.
     (varsayılan tarayıcı girdisi `userapp-Firefox-*.desktop` için de aynısı)
   - Claude Desktop: menü ve `~/.config/autostart/claude-desktop.desktop` Exec'ine `--force-device-scale-factor=2`
   - Steam: `flatpak override --user --env=STEAM_FORCE_DESKTOPUI_SCALING=2 com.valvesoftware.Steam`
+  - Claude kendini bayraksız yeniden başlatabiliyor (systemd --user altından) → bayrak kaybolur, 4x olur.
+    Kalıcı çözüm oturum ortamında `GDK_DPI_SCALE=0.5`: `~/.config/plasma-workspace/env/atasos-gdk-dpi.sh`
+    (adı `atasos-olcek.sh` olmamalı, hidpi betiğini kapatır); o anki oturum için
+    `systemctl --user set-environment GDK_DPI_SCALE=0.5`.
 - PrtSc → Flameshot: kglobalaccel'i durdur, yaz, başlat (çalışırken yazılan değişikliği ezer):
       systemctl --user stop plasma-kglobalaccel
       kwriteconfig6 --file kglobalshortcutsrc --group services \
