@@ -1,0 +1,17 @@
+#!/bin/bash
+# atasOS hız testi — Cloudflare
+DL=${1:-25000000}; UL=${2:-10}
+U=https://speed.cloudflare.com
+
+r=$(curl -o /dev/null -s -w '%{http_code} %{speed_download}' "$U/__down?bytes=$DL")
+set -- $r
+[ "$1" = 200 ] && LC_ALL=C awk -v s="$2" 'BEGIN{printf "Download : %6.1f Mbit/s\n", s*8/1e6}' \
+               || echo "Download : HATA (HTTP $1)"
+
+r=$(head -c ${UL}M /dev/urandom | curl -s -o /dev/null -X POST --data-binary @- -w '%{http_code} %{speed_upload}' "$U/__up")
+set -- $r
+[ "$1" = 200 ] && LC_ALL=C awk -v s="$2" 'BEGIN{printf "Upload   : %6.1f Mbit/s\n", s*8/1e6}' \
+               || echo "Upload   : HATA (HTTP $1)"
+
+p=$(LC_ALL=C ping -c 10 -q 1.1.1.1 2>/dev/null | awk -F/ '/^rtt|^round/{print $5}')
+echo "Ping     : ${p:-HATA} ms"

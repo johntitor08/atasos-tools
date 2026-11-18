@@ -1,0 +1,5 @@
+#!/bin/sh
+for o in kde-open6 kde-open kde-open5; do
+  command -v "$o" >/dev/null && exec "$o" "$@"
+done
+exec firefox "$@"
