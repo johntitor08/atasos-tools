@@ -1,0 +1,69 @@
+--- print.cpp.orig	2026-11-18 06:19:10.205879319 +0300
++++ print.cpp	2026-11-18 06:24:25.761620879 +0300
+@@ -20,9 +20,13 @@
+ #include <QPrintEngine>
+ #include <QStandardPaths>
+ // #include <QtPrintSupport/private/qprint_p.h>
++#include <QDateTime>
+ #include <QTemporaryFile>
+ #include <QUrl>
++#include <QtPrintSupport/private/qtprintsupportglobal_p.h>
++#if QT_CONFIG(cups)
+ #include <QtPrintSupport/private/qcups_p.h>
++#endif
+ 
+ // INFO: code below is copied from Qt as there is no public API for converting key to PageSizeId
+ 
+@@ -336,8 +340,10 @@
+     // First we have to load pre-configured options
+ 
+     // Process settings (used by printer)
++#if QT_CONFIG(cups)
+     QCUPSSupport::PagesPerSheet pagesPerSheet = QCUPSSupport::OnePagePerSheet;
+     QCUPSSupport::PagesPerSheetLayout pagesPerSheetLayout = QCUPSSupport::LeftToRightTopToBottom;
++#endif
+     for (auto it = settings.constBegin(); it != settings.constEnd(); ++it) {
+         if (it.key() == QStringLiteral("orientation")) {
+             const QString orientation = it.value().toString();
+@@ -386,6 +392,7 @@
+                 QStringList lastRangeValues = ranges.last().split(QLatin1Char('-'));
+                 printer->setFromTo(firstRangeValues.first().toInt(), lastRangeValues.last().toInt());
+             }
++#if QT_CONFIG(cups)
+         } else if (it.key() == QStringLiteral("page-set")) {
+             // WARNING Qt internal private API, anyway the print dialog doesn't seem to
+             // read these properties, but I'll leave it here in case this changes in future
+@@ -435,6 +442,7 @@
+             } else if (layout == QLatin1String("btrl")) {
+                 pagesPerSheetLayout = QCUPSSupport::BottomToTopRightToLeft;
+             }
++#endif
+         } else if (it.key() == QStringLiteral("output-file-format")) {
+             // TODO only PDF supported by Qt so when printing to file we can use PDF only
+             // btw. this should be already set automatically because we set output file name
+@@ -456,7 +464,9 @@
+         }
+     }
+ 
++#if QT_CONFIG(cups)
+     QCUPSSupport::setPagesPerSheetLayout(printer, pagesPerSheet, pagesPerSheetLayout);
++#endif
+ 
+     // Process page setup
+     QSizeF paperSize;
+@@ -540,6 +550,7 @@
+             const int toPageToIndex = printer->toPage() ? printer->toPage() - 1 : printer->toPage();
+             resultingSettings.insert(QStringLiteral("page-ranges"), QStringLiteral("%1-%2").arg(fromPageToIndex).arg(toPageToIndex));
+         }
++#if QT_CONFIG(cups)
+         // Set cups specific properties
+         const QStringList cupsOptions = printer->printEngine()->property(PPK_CupsOptions).toStringList();
+         qCDebug(XdgDesktopPortalKdePrint) << cupsOptions;
+@@ -552,6 +563,7 @@
+         if (cupsOptions.contains(QLatin1String("number-up-layout"))) {
+             resultingSettings.insert(QStringLiteral("number-up-layout"), cupsOptions.at(cupsOptions.indexOf(QStringLiteral("number-up-layout")) + 1));
+         }
++#endif
+ 
+         if (printer->outputFormat() == QPrinter::PdfFormat) {
+             resultingSettings.insert(QStringLiteral("output-file-format"), QLatin1String("pdf"));
