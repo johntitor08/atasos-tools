@@ -72,6 +72,13 @@ dönüştürülecek ilk adaylar bunlar.
   (Claude, Steam) ve Firefox ölçeği `Xft.dpi`'dan okuyor. 96'da kalırsa pencereler yarım boy:
   `kwriteconfig6 --file kcmfonts --group General --key forceFontDPI 192`
   (hidpi betiği Xft.dpi > 96 görünce GDK_DPI_SCALE ile GTK yazılarını dengeliyor).
+  Sadece girişte etkili: hidpi betiği GDK_DPI_SCALE=0.5'i ancak oturum açılırken Xft.dpi 192
+  ise koyar. Aksi halde Firefox GDK_SCALE=2 × Xft.dpi 192 ile 4x olur. Oturumdan bağımsız
+  kesin ayarlar (kullanıcı başlatıcıları):
+  - Firefox: `~/.local/share/applications/firefox.desktop` → `Exec=env GDK_DPI_SCALE=0.5 /opt/firefox/firefox %u`
+    (varsayılan tarayıcı girdisi `userapp-Firefox-*.desktop` için de aynısı)
+  - Claude Desktop: menü ve `~/.config/autostart/claude-desktop.desktop` Exec'ine `--force-device-scale-factor=2`
+  - Steam: `flatpak override --user --env=STEAM_FORCE_DESKTOPUI_SCALING=2 com.valvesoftware.Steam`
 - PrtSc → Flameshot: kglobalaccel'i durdur, yaz, başlat (çalışırken yazılan değişikliği ezer):
       systemctl --user stop plasma-kglobalaccel
       kwriteconfig6 --file kglobalshortcutsrc --group services \
