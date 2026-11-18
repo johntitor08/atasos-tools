@@ -6,7 +6,7 @@ arasındaki fark. p5 o gün `/mnt/atasos` üzerinden tek tek kontrol edildi.
 
 ## 0. ENGELLEYİCİ: bunlar olmadan v37 üretilmez
 
-- [ ] **`home-kurulu` ISO'ya GİRMEMELİ.** 18 Kasım'da p4'ün `/home`'u p5'e taşındı:
+- [x] **`home-kurulu` ISO'ya GİRMEMELİ.** → `scripts/2026-11-rebuild/atasos-87-v37-iso.sh` (sahte ağaçla test edildi: v36 listesi `.ssh/id_ed25519`'i sızdırıyor, v37 listesi dışlıyor, kontroller yakalıyor) 18 Kasım'da p4'ün `/home`'u p5'e taşındı:
       `p5:/home-kurulu` (≈14 GB: `~/.ssh` özel anahtarı, Firefox profili, Claude oturumu, Steam).
       v36 betiği yalnızca `$K/home`'u boşaltıyor ve `HARIC` listesinde `home-kurulu` yok. Betik bu
       haliyle çalışırsa hepsi `filesystem.squashfs`'e girip archive.org'da yayımlanır.
