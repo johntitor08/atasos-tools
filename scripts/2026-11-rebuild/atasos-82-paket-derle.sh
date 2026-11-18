@@ -114,12 +114,16 @@ for p in "${PAKETLER[@]}"; do
         curl)    v=$(cr curl --version 2>&1 | head -1); echo "  curl: $v"; grep -q "^curl 8.23.0" <<< "$v" || H=1
                  c=$(cr curl -sSL -o /dev/null -w '%{http_code}' https://archive.org/download/atasos-depo/atspkg.index 2>&1)
                  echo "  curl https://archive.org (TLS dogrulamali): $c"; [ "$c" = 200 ] || H=1 ;;
+        expat)   v=$(cr xmlwf -v 2>&1 | head -1); echo "  expat: $v"; grep -q "expat_2.10.0" <<< "$v" || H=1
+                 p=$(cr python3 -c 'import pyexpat; print(pyexpat.EXPAT_VERSION)' 2>&1); echo "  python pyexpat: $p (bilgi; python kendi expat'ini gomulu kullaniyor olabilir)" ;;
+        zlib)    p=$(cr python3 -c 'import zlib; print(zlib.ZLIB_RUNTIME_VERSION)' 2>&1); echo "  zlib (python calisma ani): $p"; [ "$p" = 1.3.2 ] || H=1
+                 c=$(cr sh -c 'echo atasos | gzip | gzip -d' 2>&1); echo "  gzip gidis-donus: $c"; [ "$c" = atasos ] || H=1 ;;
         sudo)    v=$(cr sudo -V 2>&1 | head -1); echo "  sudo: $v"; grep -q "1.9.17p2" <<< "$v" || H=1
                  cr sudo -V 2>&1 | grep -q -- '--without-pam' && echo "  sudo: PAM'siz (ozgun gibi)" || { echo "  sudo: --without-pam YOK <<<"; H=1; }
                  cr visudo -c 2>&1 | sed 's/^/  visudo: /' ;;
     esac
 done
-ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
+ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
 [ -z "$ek" ] && echo "  eksik kutuphane yok" || { echo "  EKSIK KUTUPHANE <<<"; echo "$ek" | sed 's/^/    /'; H=1; }
 cr atspkg listele 2>&1 | sed 's/^/  kurulu: /'
 [ $H -eq 0 ] || { echo "  DURDU: duman testi basarisiz; paketler yayinlanmamali."; exit 1; }

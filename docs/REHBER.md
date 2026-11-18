@@ -313,12 +313,15 @@ sudo atspkg guncelle && sudo atspkg kur atasos-guncelleme
 
 Bundan sonra uygulama menüsündeki **Sistemi Güncelle** (ya da uçbirimde
 `atasos-guncelle`) güncellemeleri kurar: ilk çalıştırmada atasOS'un temel
-paketlerini (şimdilik OpenSSL, curl, sudo) yeni sürümleriyle değiştirir, sonra
+paketlerini (şimdilik OpenSSL, curl, sudo, expat, zlib) yeni sürümleriyle değiştirir, sonra
 her çalıştırmada yeni sürümleri getirir. Parolanız sorulur. Güncellemeden sonra
 bilgisayarı yeniden başlatın.
 
 Şu an depoda: OpenSSL 3.5.9 (3.5 LTS güvenlik düzeltmeleri), curl 8.23.0,
-sudo 1.9.17p2 (`sudo --chroot` açığının düzeltmesi). Çekirdek, Plasma ve diğer
+sudo 1.9.17p2 (`sudo --chroot` açığının düzeltmesi), expat 2.10.0 (XML
+ayrıştırıcı), zlib 1.3.2. Güncelleyicinin kendisi de bu kanaldan güncellenir:
+**Sistemi Güncelle** önce kendi yeni sürümünü kurar, sonra yeni eklenen temel
+paketleri ilk kez kurar. Çekirdek, Plasma ve diğer
 kütüphaneler henüz depoda yoktur; onlar için yeni ISO gerekir.
 
 İki paket aracı geliştirme aşamasındadır:
@@ -394,7 +397,7 @@ başlatın.
 | **AMD dizüstülerde dahili mikrofon** (SoundWire / ACP) çalışmıyor | Çekirdekte ASoC desteği kapalı. Kulaklık ve USB mikrofon çalışır. |
 | **NVIDIA'nın kendi sürücüsü** yok | Açık kaynak nouveau kullanılır; yeni NVIDIA kartlarda 3B hızlandırma sınırlıdır. |
 | **Steam** doğrudan kurulamaz (32 bit kütüphane yok) | Flatpak ile kurulur; bkz. [Flatpak ve Steam](#flatpak-ve-steam). |
-| **Güncelleme kanalı** yalnızca birkaç paket içerir | OpenSSL, curl ve sudo güncellenir (**Sistemi Güncelle**); çekirdek, Plasma ve diğerleri için yeni ISO gerekir. Firefox menüden güncellenir. Bkz. [Paketler ve güncelleme](#9-paketler-ve-güncelleme). |
+| **Güncelleme kanalı** yalnızca birkaç paket içerir | OpenSSL, curl, sudo, expat ve zlib güncellenir (**Sistemi Güncelle**); çekirdek, Plasma ve diğerleri için yeni ISO gerekir. Firefox menüden güncellenir. Bkz. [Paketler ve güncelleme](#9-paketler-ve-güncelleme). |
 | **Disk şifreleme** (LUKS) yok | Initramfs olmadığı için şifreli kök açılamaz; v36'da seçenek gizlendi. |
 | Gerçek donanımda **sınırlı test** | Kurulum testleri sanal makinede yapıldı. Sorun bildirirseniz düzeltilir. |
 

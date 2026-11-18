@@ -1,0 +1,15 @@
+# atasOS tarifi: zlib (sikistirma kutuphanesi; v36'da 1.3.1). Ozgun: /usr/lib, libz.a da kurulu (silinmemis).
+# SONAME libz.so.1 degismez.
+name=zlib
+version=1.3.2
+release=1
+description="zlib sikistirma kutuphanesi - guvenlik guncellemesi"
+depends=()
+source=(zlib-1.3.2.tar.xz)
+
+build() {
+    ./configure --prefix=/usr
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    [ -f "$pkgdir/usr/lib/libz.so.1.3.2" ] || { echo "libz.so.1.3.2 /usr/lib altinda degil"; exit 1; }
+}

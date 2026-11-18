@@ -3,3 +3,5 @@
 openssl
 curl
 sudo
+expat
+zlib
