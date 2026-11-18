@@ -1,0 +1,2 @@
+kurulum_sonrasi() { update-desktop-database -q /usr/share/applications 2>/dev/null; true; }
+kaldirma_sonrasi() { update-desktop-database -q /usr/share/applications 2>/dev/null; true; }

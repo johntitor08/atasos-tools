@@ -1,0 +1,21 @@
+# atasOS tarifi: xdg-desktop-portal 1.18.4 (flatpak uygulamalari icin dosya secici, baglanti acma, tema, ekran goruntusu).
+# 1.20.x gstreamer-pbutils ister (atasOS'ta yok) -> 1.18.4 (CVE-2024-32462 duzeltmesi dahil).
+# Arka uc (KDE pencereleri) ayri pakette: xdg-desktop-portal-kde.
+name=xdg-desktop-portal
+version=1.18.4
+release=1
+description="Masaustu portali (flatpak dosya secici, baglanti acma, tema)"
+depends=()
+source=(xdg-desktop-portal-1.18.4.tar.xz)
+
+build() {
+    # atasOS kutuphaneleri /usr/lib64/pkgconfig altinda; /etc/profile ile ayni yol (chroot temiz ortamda profile okumaz)
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    meson setup build --prefix=/usr --libexecdir=libexec --buildtype=release \
+        -Dgeoclue=disabled -Dlibportal=disabled -Ddocbook-docs=disabled -Dman-pages=disabled \
+        -Dinstalled-tests=false -Dpytest=disabled
+    ninja -C build
+    DESTDIR="$pkgdir" meson install -C build
+    [ -x "$pkgdir/usr/libexec/xdg-desktop-portal" ] || { echo "usr/libexec/xdg-desktop-portal yok"; exit 1; }
+    [ -f "$pkgdir/usr/lib/systemd/user/xdg-desktop-portal.service" ] || { echo "systemd kullanici servisi /usr/lib/systemd/user altinda degil"; exit 1; }
+}

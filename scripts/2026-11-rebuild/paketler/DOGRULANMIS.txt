@@ -8,3 +8,13 @@ fb886a01118f23e98a36f57dbcefb1b9d4ebec891bf07d8890cfec65f232559d  org.atasos.gun
 51fc95521e87d30521ec7b17ef769c5f8a4aafe78faf484de5f11aee6f935a92  temel.list  # atasOS'un kendi dosyasi (Claude yazdi; 1.1: expat, zlib eklendi)
 c624ba2998fc65df1163a49641ff3f9ab73138b11641d92c86bee0fb01b1bc7f  expat-2.10.0.tar.xz  # imza: Sebastian Pipping 3176EF7DB2367F1FCA4F306B1F9B0E909AF37285
 d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3  zlib-1.3.2.tar.xz  # imza: Mark Adler 5ED46A6721D365587791E2AA783FCD8E58BCAFBA
+# 2026-11-18 (v37 masaustu/portal): kaynaklar atasOS'ta (p4) indirilmisti; asagidaki bagimsiz kaynaklarla dogrulandi.
+9a88fe1da3a29a917c3fc67ce6eb3178399d68e1a548c6d86c70d9b13651fd71  cups-2.4.11-source.tar.gz  # imza: OpenPrinting/Zdenek Dohnal 7082A0A50A2E92640F3880E0E4522DCC9B246FF7 (keys.openpgp.org); BLFS 12.3 MD5 de ayni
+55dec317f1401cd2e5dba844d340b930ab7547f818179a4002bce62e6f1c6895  nspr-4.36.tar.gz  # Mozilla SHA256SUMS (ftp.mozilla.org/pub/nspr/releases/v4.36/src) + BLFS 12.3 MD5 (imza yayimlanmiyor)
+a0f6fcb5dbadc1635b43827517a979e3a6d005d0788527802a6b31e2c5f66eec  nss-3.108.tar.gz  # Mozilla SHA256SUMS (ftp.mozilla.org/pub/security/nss/releases/NSS_3_108_RTM/src) + BLFS 12.3 MD5 (imza yayimlanmiyor)
+87bb1af0b11fd41311b9899187f6e4b3fca9940651123c7bc836ec7497d2da84  nss-standalone-1.patch  # linuxfromscratch.org/patches/blfs/12.3 ile birebir ayni
+106642d8ccb36c5f7323b64e4152e9b719f7c0215acf5bfeac3d5e7f97b59254  sqlite-autoconf-3490100.tar.gz  # BLFS 12.3 MD5 8d77d0779bcd9993eaef33431e2e0c30 (SQLite imza yayimlamiyor)
+b858aa1e74e80c862790dbb912906e6eab8b1e4db9339cd759473af62b461e65  xdg-desktop-portal-1.18.4.tar.xz  # GitHub surum notundaki sha256 ile ayni (flatpak/xdg-desktop-portal 1.18.4; imza yayimlanmiyor)
+59c62f679d2dac721dd537d83ad3075c129d07e1056e0a592117f711979f0821  xdg-desktop-portal-kde-6.3.4.tar.xz  # imza: KDE/Jonathan Riddell E0A3EB202F8E57528E13E72FD7574483BB57B18D (KDE release-keyring ile ayni)
+c901efc5cbc66d93459a51a165e16475d3d61dd296c86746864df85a5569984c  xdg-open  # atasOS'un kendi dosyasi (scripts/xdg-open)
+4f44d48ab32b9a7a2052670edc4baef78bdf365dcf1dcc5a6690e2f55093df5e  xdg-desktop-portal-kde-6.3.4-cupssuz.patch  # atasOS'un kendi yamasi (recipes/xdg-desktop-portal; Qt CUPS'suz)

@@ -1,0 +1,22 @@
+# atasOS tarifi: xdg-desktop-portal-kde 6.3.4 (Plasma surumuyle AYNI olmali; atasOS Plasma 6.3.4).
+# atasOS'un Qt PrintSupport'u CUPS'suz derlendi (QT_FEATURE_cups -1): print.cpp derlenmez. Yama CUPS
+# kisimlarini QT_CONFIG(cups) arkasina alir (PDF'e yazdirma calisir, N-up secenekleri yok).
+name=xdg-desktop-portal-kde
+version=6.3.4
+release=1
+description="Masaustu portalinin KDE arka ucu (KDE dosya secici ve onay pencereleri)"
+depends=(xdg-desktop-portal)
+source=(xdg-desktop-portal-kde-6.3.4.tar.xz xdg-desktop-portal-kde-6.3.4-cupssuz.patch)
+
+build() {
+    # atasOS kutuphaneleri /usr/lib64/pkgconfig altinda; /etc/profile ile ayni yol (chroot temiz ortamda profile okumaz)
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    cd "$srcdir"
+    patch -p0 -d xdg-desktop-portal-kde-6.3.4/src < xdg-desktop-portal-kde-6.3.4-cupssuz.patch
+    cmake -S xdg-desktop-portal-kde-6.3.4 -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_INSTALL_LIBEXECDIR=libexec -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+    ninja -C build
+    DESTDIR="$pkgdir" cmake --install build
+    [ -x "$pkgdir/usr/libexec/xdg-desktop-portal-kde" ] || { echo "usr/libexec/xdg-desktop-portal-kde yok"; exit 1; }
+    [ -f "$pkgdir/usr/share/xdg-desktop-portal/portals/kde.portal" ] || { echo "kde.portal yok"; exit 1; }
+}

@@ -14,7 +14,7 @@ arasındaki fark. p5 o gün `/mnt/atasos` üzerinden tek tek kontrol edildi.
       - Son kontrol döngüsüne `'home-kurulu/'` ve `'.ssh/'` "temiz" maddeleri ekle.
       - Ek güvenlik: `mksquashfs`'ten önce `[ -e $K/home-kurulu ] && rm -rf $K/home-kurulu`
         (overlay görünümünde, p5'e dokunmaz).
-- [ ] **GitHub push.** Tarifler ve betikler (6 commit, `b12ab05..f05765e`) yalnızca bu makinede ve
+- [x] **GitHub push.** Tarifler ve betikler (6 commit, `b12ab05..f05765e`) yalnızca bu makinede ve
       `~/atasos-tools-yedek.bundle` içinde. ISO'dan önce depoda olsunlar.
 - [ ] Betiği yine **Kubuntu'dan** çalıştır. atasOS'ta (p4) p5 artık fstab'dan `/mnt/atasos`'a bağlı,
       betiğin "p5 başka yerde bağlı" kontrolü orada durdurur (bu doğru davranış).

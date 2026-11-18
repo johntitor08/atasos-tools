@@ -19,6 +19,14 @@ K=$P/kok; U=$P/ust; W=$P/is
 KN=/veri/atasos-iso/kanal
 LOG=$P/derleme-$(date +%Y%m%d-%H%M).log
 PAKETLER=("$@"); [ ${#PAKETLER[@]} -gt 0 ] || PAKETLER=(openssl curl sudo)
+# bagimlilik sirasi: her paket derlenir derlenmez gecici katmana kurulur, sonrakiler ona karsi derlenir (nss -> nspr+sqlite)
+SIRA=(openssl curl sudo expat zlib nspr sqlite nss libcups atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde atasos-guncelleme)
+S2=(); for s in "${SIRA[@]}"; do for p in "${PAKETLER[@]}"; do [ "$p" = "$s" ] && S2+=("$p"); done; done
+for p in "${PAKETLER[@]}"; do [[ " ${SIRA[*]} " == *" $p "* ]] || S2+=("$p"); done
+PAKETLER=("${S2[@]}")
+for p in "${PAKETLER[@]}"; do
+    case $p in nss) for d in nspr sqlite; do [[ " ${PAKETLER[*]} " == *" $d "* ]] || { echo "HATA: nss icin $d de ayni calismada derlenmeli (sira: nspr sqlite nss)"; exit 1; }; done ;; esac
+done
 grep -q '^/dev/nvme0n1p5 ' /proc/mounts && { echo "  p5 baska bir yerde bagli; once ayir. Hicbir sey yapilmadi."; exit 1; }
 [ "$(sha256sum $KN/atspkg-0.3.0 2>/dev/null | cut -d' ' -f1)" = 9fd185ccca487009508847ce0b3ac15efeabb11dc4c012e62b93db585b634049 ] \
     || { echo "HATA: $KN/atspkg-0.3.0 yok/bozuk"; exit 1; }
@@ -81,6 +89,11 @@ for p in "${PAKETLER[@]}"; do
     [ -f "${DOSYA[$p]}" ] || { echo "  HATA: $p paketi olusmadi"; exit 1; }
     rm -rf "$D/work"
     echo "  tamam: ${DOSYA[$p]##*/} ($(du -h "${DOSYA[$p]}" | cut -f1), $(( ($(date +%s)-B)/60 )) dk)"
+    # sonraki paketler buna karsi derlensin diye HEMEN gecici katmana kur (p5'e dokunmaz)
+    [ "$p" = sudo ] && { chown root:root $K/etc/sudoers && chmod 0440 $K/etc/sudoers; }
+    cr atspkg kur "/mnt/tarifler/$p/${DOSYA[$p]##*/}" > "$D/kurulum.log" 2>&1 \
+        || { echo "  HATA: $p gecici katmana kurulamadi:"; tail -n 8 "$D/kurulum.log" | sed 's/^/    /'; exit 1; }
+    echo "  gecici katmana kuruldu: $p"
 done
 
 echo
@@ -106,7 +119,7 @@ echo
 echo "########## 4/4  DUMAN TESTI (yalniz gecici katmanda) ##########"
 # p5 (gelistirme sistemi) /etc/sudoers 0440 degil; ISO ve kurulu sistemlerde 0440 -> gecici katmanda kurulu sistemi taklit et
 chown root:root $K/etc/sudoers && chmod 0440 $K/etc/sudoers
-for p in "${PAKETLER[@]}"; do cr atspkg kur "/mnt/tarifler/$p/${DOSYA[$p]##*/}" 2>&1 | grep -E "tamam|hata|uyar" | sed 's/^/  /'; done
+# paketler derleme adiminda zaten gecici katmana kuruldu
 for p in "${PAKETLER[@]}"; do
     case $p in
         openssl) v=$(cr openssl version 2>&1); echo "  openssl version: $v"; grep -q "^OpenSSL 3.5.9" <<< "$v" || H=1
@@ -121,9 +134,23 @@ for p in "${PAKETLER[@]}"; do
         sudo)    v=$(cr sudo -V 2>&1 | head -1); echo "  sudo: $v"; grep -q "1.9.17p2" <<< "$v" || H=1
                  cr sudo -V 2>&1 | grep -q -- '--without-pam' && echo "  sudo: PAM'siz (ozgun gibi)" || { echo "  sudo: --without-pam YOK <<<"; H=1; }
                  cr visudo -c 2>&1 | sed 's/^/  visudo: /' ;;
+        nspr)    v=$(cr nspr-config --version 2>&1); echo "  nspr: $v"; case "$v" in 4.36|4.36.0) ;; *) H=1;; esac ;;
+        sqlite)  v=$(cr sqlite3 --version 2>&1 | cut -d' ' -f1); echo "  sqlite3: $v"; [ "$v" = 3.49.1 ] || H=1
+                 c=$(cr sqlite3 :memory: "create virtual table t using fts5(x); insert into t values('atasos'); select x from t where t match 'atasos';" 2>&1)
+                 echo "  sqlite fts5 sorgusu: $c"; [ "$c" = atasos ] || H=1 ;;
+        nss)     v=$(cr nss-config --version 2>&1); echo "  nss: $v"; case "$v" in 3.108|3.108.0) ;; *) H=1;; esac
+                 c=$(cr sh -c 'd=$(mktemp -d) && certutil -N -d sql:$d --empty-password && certutil -L -d sql:$d >/dev/null && ls $d/cert9.db >/dev/null && echo ok; rm -rf $d' 2>&1)
+                 echo "  certutil sql: veritabani (softokn3 + sistem sqlite): $c"; [ "$c" = ok ] || H=1 ;;
+        libcups) c=$(cr python3 -c 'import ctypes; l=ctypes.CDLL("libcups.so.2"); l.cupsGetDefault; print("ok")' 2>&1)
+                 echo "  libcups.so.2 yuklenip sembol bulundu: $c"; [ "$c" = ok ] || H=1 ;;
+        atasos-xdg-open) cr sh -n /usr/bin/xdg-open && [ -x $K/usr/bin/xdg-open ] && echo "  xdg-open: calistirilabilir, sozdizimi tamam" || { echo "  xdg-open sorunlu <<<"; H=1; } ;;
+        xdg-desktop-portal) cr /usr/libexec/xdg-desktop-portal --help >/dev/null 2>&1 && echo "  xdg-desktop-portal: calisiyor (--help)" || { echo "  xdg-desktop-portal calismiyor <<<"; H=1; }
+                 for f in /usr/share/dbus-1/services/org.freedesktop.portal.Desktop.service /usr/lib/systemd/user/xdg-desktop-portal.service; do [ -e $K$f ] && echo "  portal: $f var" || { echo "  portal: $f YOK <<<"; H=1; }; done ;;
+        xdg-desktop-portal-kde) for f in /usr/share/xdg-desktop-portal/portals/kde.portal /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.kde.service; do
+                     [ -e $K$f ] && echo "  portal-kde: $f var" || { echo "  portal-kde: $f YOK <<<"; H=1; }; done ;;
     esac
 done
-ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
+ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
 [ -z "$ek" ] && echo "  eksik kutuphane yok" || { echo "  EKSIK KUTUPHANE <<<"; echo "$ek" | sed 's/^/    /'; H=1; }
 cr atspkg listele 2>&1 | sed 's/^/  kurulu: /'
 [ $H -eq 0 ] || { echo "  DURDU: duman testi basarisiz; paketler yayinlanmamali."; exit 1; }
