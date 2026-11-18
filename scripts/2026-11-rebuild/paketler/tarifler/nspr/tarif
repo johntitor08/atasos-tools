@@ -1,0 +1,18 @@
+# atasOS tarifi: NSPR (Netscape Portable Runtime). NSS'in ve Electron uygulamalarinin (Claude Desktop) bagimliligi.
+# BLFS 12.3 ile ayni secenekler. Statik .a kurulmaz (rules.mk sed'i).
+name=nspr
+version=4.36
+release=1
+description="Netscape Portable Runtime (NSS ve Electron bagimliligi)"
+depends=()
+source=(nspr-4.36.tar.gz)
+
+build() {
+    cd nspr
+    sed -i '/^RELEASE/s|^|#|'  pr/src/misc/Makefile.in
+    sed -i 's|$(LIBRARY) ||'   config/rules.mk
+    ./configure --prefix=/usr --with-mozilla --with-pthreads --enable-64bit
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    [ -f "$pkgdir/usr/lib/libnspr4.so" ] || { echo "libnspr4.so /usr/lib altinda degil"; exit 1; }
+}

@@ -1,0 +1,7 @@
+kurulum_sonrasi() {
+    update-desktop-database -q /usr/share/applications 2>/dev/null
+    gtk-update-icon-cache -qf /usr/share/icons/hicolor 2>/dev/null
+    kbuildsycoca6 --noincremental >/dev/null 2>&1
+    true
+}
+kaldirma_sonrasi() { update-desktop-database -q /usr/share/applications 2>/dev/null; true; }

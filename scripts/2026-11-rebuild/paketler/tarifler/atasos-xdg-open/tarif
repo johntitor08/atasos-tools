@@ -1,0 +1,13 @@
+# atasOS tarifi: xdg-open yerine gecen kucuk betik (kde-open6 -> kde-open -> kde-open5 -> firefox).
+# Electron uygulamalari (Claude Desktop girisi) ve claude:// donus linkleri xdg-open'a ihtiyac duyar.
+# BLFS xdg-utils kurulursa bu paket kaldirilmali (/usr/bin/xdg-open cakisir).
+name=atasos-xdg-open
+version=1.0
+release=1
+description="xdg-open (KDE'ye yonlendiren atasOS betigi)"
+depends=()
+source=(xdg-open)
+
+build() {
+    install -Dm755 "$srcdir/xdg-open" "$pkgdir/usr/bin/xdg-open"
+}

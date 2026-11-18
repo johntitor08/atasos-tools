@@ -1,0 +1,19 @@
+# atasOS tarifi: SQLite 3.49.1 (BLFS 12.3 surumu).
+# DIKKAT: 3.48+ yeni autosetup configure varsayilan olarak SONAME KOYMAZ. --soname=legacy olmadan
+# libsqlite3.so.0 SONAME'i olusmaz ve buna baglanan her sey NEEDED=libsqlite3.so olarak kalir.
+# NSS bundan SONRA derlenmeli (NSS_USE_SYSTEM_SQLITE=1).
+name=sqlite
+version=3.49.1
+release=1
+description="SQLite veritabani kutuphanesi ve sqlite3 kabugu"
+depends=()
+source=(sqlite-autoconf-3490100.tar.gz)
+
+build() {
+    ./configure --prefix=/usr --disable-static --enable-fts4 --enable-fts5 --soname=legacy \
+        CPPFLAGS="-D SQLITE_ENABLE_COLUMN_METADATA=1 -D SQLITE_ENABLE_UNLOCK_NOTIFY=1 -D SQLITE_ENABLE_DBSTAT_VTAB=1 -D SQLITE_SECURE_DELETE=1"
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    readelf -d "$pkgdir/usr/lib/libsqlite3.so" | grep -q 'SONAME.*libsqlite3\.so\.0' \
+        || { echo "libsqlite3 SONAME libsqlite3.so.0 degil (--soname=legacy calismadi)"; exit 1; }
+}

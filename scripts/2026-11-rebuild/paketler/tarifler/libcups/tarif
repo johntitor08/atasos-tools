@@ -1,0 +1,20 @@
+# atasOS tarifi: yalniz libcups (CUPS 2.4.11 istemci kutuphanesi). Yazdirma servisi (cupsd) KURULMAZ.
+# Electron/Chromium yazdirma diyalogu icin libcups.so.2'ye baglanir; olmazsa Claude Desktop hic acilmaz.
+# Ileride tam CUPS kurulursa bu paket kaldirilmali (ayni dosyalar).
+name=libcups
+version=2.4.11
+release=1
+description="CUPS istemci kutuphanesi (libcups.so.2) - yazdirma servisi olmadan"
+depends=()
+source=(cups-2.4.11-source.tar.gz)
+
+build() {
+    ./configure --prefix=/usr --libdir=/usr/lib --with-tls=openssl --without-rcdir
+    make -C cups -j"$(nproc)"
+    install -Dm755 cups/libcups.so.2 "$pkgdir/usr/lib/libcups.so.2"
+    ln -s libcups.so.2 "$pkgdir/usr/lib/libcups.so"
+    install -d "$pkgdir/usr/include/cups"
+    install -m644 cups/adminutil.h cups/array.h cups/cups.h cups/dir.h cups/file.h cups/http.h \
+                  cups/ipp.h cups/language.h cups/ppd.h cups/pwg.h cups/raster.h cups/sidechannel.h \
+                  cups/transcode.h cups/versioning.h cups/backend.h "$pkgdir/usr/include/cups/"
+}

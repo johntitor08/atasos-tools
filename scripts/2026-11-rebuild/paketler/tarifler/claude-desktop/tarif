@@ -1,0 +1,30 @@
+# atasOS tarifi: Claude Desktop (Anthropic'in resmi Linux beta .deb'i, apt deposundan).
+# Kaynak: https://downloads.claude.ai/claude-desktop/apt/stable  (pool/main/c/claude-desktop/)
+# .deb oldugu gibi acilir; ikili dosyalara dokunulmaz. Yalniz:
+#   - chrome-sandbox setuid root (4755) olmali, yoksa Electron acilmaz
+#   - .desktop Exec'ine --ozone-platform-hint=auto: X11 oturumunda X11, Wayland'de Wayland secer
+#   - apt'ye ozgu dosyalar (etc/apt) atilir
+# UYARI: Anthropic'in kapali kaynak ikilisi. Kendi makinelerinde kullan; herkese acik ISO/depoya koymadan
+#        once dagitim izni olup olmadigini kontrol et.
+name=claude-desktop
+version=5.11492.5
+release=1
+description="Claude Desktop (Anthropic, Linux beta)"
+depends=(nspr nss libcups atasos-xdg-open)
+source=(claude-desktop_5.11492.5_amd64.deb)
+
+build() {
+    cd "$srcdir"
+    ar x claude-desktop_5.11492.5_amd64.deb
+    tar -xf data.tar.*
+    cp -a usr "$pkgdir/"
+    [ -d opt ] && cp -a opt "$pkgdir/"
+    [ -d etc ] && { cp -a etc "$pkgdir/"; rm -rf "$pkgdir/etc/apt"; rmdir "$pkgdir/etc" 2>/dev/null || true; }
+    S="$pkgdir/usr/lib/claude-desktop/chrome-sandbox"
+    [ -f "$S" ] || { echo "chrome-sandbox yok: .deb yapisi degismis"; exit 1; }
+    chmod 4755 "$S"
+    for d in "$pkgdir"/usr/share/applications/*.desktop; do
+        [ -f "$d" ] || continue
+        grep -q 'ozone-platform' "$d" || sed -i 's|^Exec=\([^ ]*claude-desktop\)|Exec=\1 --ozone-platform-hint=auto|' "$d"
+    done
+}
