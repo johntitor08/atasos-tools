@@ -4,7 +4,7 @@
 #   - /veri/atasos-paket/paketler/SHA256SUMS'taki ve dizinde olmayan paketler eklenir
 #   - her paket icin archive.org'daki boyut yerel dosyayla karsilastirilir (hizli; tam sha256 denetimini 84 yapti)
 #   - 'evet' -> gpg parolasi HEMEN sorulur (pencere arkada kalabilir; gorev cubuguna bak) -> dizin + imza yuklenir
-# Kullanim (sudo YOK): bash ~/atasos-85-dizin-imzala-yukle.sh
+# Kullanim (sudo YOK): bash ~/atasos-85-dizin-imzala-yukle.sh [paket.atspkg.tar.zst ...]  (arguman yoksa SHA256SUMS'taki hepsi)
 set -uo pipefail
 export LC_ALL=C
 [ "$(id -u)" -ne 0 ] || { echo "Root olarak DEGIL calistir: bash $0"; exit 1; }
@@ -21,7 +21,10 @@ curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o $T/atspkg.index "$DEP
     && gpgv --keyring $KN/depo-anahtari.gpg $T/atspkg.index.sig $T/atspkg.index >/dev/null 2>&1 \
     || { echo "HATA: mevcut dizin indirilemedi ya da imzasi gecersiz"; exit 1; }
 cp $T/atspkg.index $T/yeni.index
+# arguman verilirse YALNIZ o paket dosyalari eklenir (SHA256SUMS'ta yayinlanmamis baska paketler de olabilir)
+SECILEN=" $* "
 while read -r h f; do
+    [ $# -eq 0 ] || [[ "$SECILEN" == *" $f "* ]] || continue
     pk=$(tar -xOf "$P/$f" .PKGINFO 2>/dev/null) || { echo "HATA: $f okunamadi"; exit 1; }
     ad=$(awk -F' = ' '$1=="name"{print $2}' <<< "$pk"); sr=$(awk -F' = ' '$1=="version"{print $2}' <<< "$pk"); yy=$(awk -F' = ' '$1=="release"{print $2}' <<< "$pk")
     awk -v a="$ad" -v s="$sr" -v y="$yy" '$1==a && $2==s && $3==y{f=1} END{exit !f}' $T/yeni.index && continue
