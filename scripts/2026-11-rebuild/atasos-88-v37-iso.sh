@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # atasOS v37 CANLI ISO = v36 + GUNCEL PAKETLER + MASAUSTU PORTALI + VARSAYILAN AYARLAR (atasos-88; plan: docs/notes/v37-plan.md):
 #   - Guncelleme kanali paketleri ISO'da hazir kurulu (atasos-82 ile derlenmis, archive.org'dakilerle AYNI dosyalar):
-#     openssl 3.5.9, curl 8.23.0, sudo 1.9.17p2, expat 2.10.0, zlib 1.3.2, atasos-guncelleme 1.1 ("Sistemi Guncelle")
+#     openssl 3.5.9, curl 8.23.0, sudo 1.9.17p2, expat 2.10.0, zlib 1.3.2, atasos-guncelleme 1.2 ("Sistemi Guncelle"), fastfetch 2.71.0
 #   - Masaustu paketleri (atasos-82, kaynaklar bagimsiz dogrulandi): nspr 4.36, sqlite 3.49.1, nss 3.108, libcups 2.4.11
 #     (yalniz kutuphane), atasos-xdg-open, xdg-desktop-portal 1.18.4 + xdg-desktop-portal-kde 6.3.4 (flatpak
 #     uygulamalarinda KDE dosya secici, baglanti acma, koyu tema, ekran goruntusu)
 #   - Paketler ISO GORUNUMUNE 'atspkg kur' ile kurulur (p5'e dokunulmaz) ve atspkg veritabanina kaydolur.
 #   - /etc/skel: Turkce kullanici klasorleri (Masaustu, Indirilenler, Belgeler, Resimler, Muzik, Videolar)
+#   - atasOS MASAUSTU varsayilan: AtasOS renkleri, atasos masaustu temasi, ortada yuzen alt panel, atasOS Baslat,
+#     acilis ekrani, ilk giriste "atasOS'a Hos Geldin" (atasos-masaustu paketi; kaynak atasos-tools/masaustu)
 #   - HiDPI (%200): Xft.dpi 192 + GDK_DPI_SCALE=0.5 kosulsuz (Firefox/Electron 4x olmasin) + Steam olcegi
 #   - claude-desktop ISO'ya GIRMEZ (dagitim izni yok); son kontrolde aranir.
 #   - (atasos-87) p5:/home-kurulu (kurulu sistemin /home'u: ~/.ssh, tarayici profili, oturumlar) ISO'ya girmez;
@@ -85,9 +87,9 @@ GH=$(mktemp -d); gpg --homedir "$GH" --batch --list-packets $KN/depo-anahtari.gp
 # v37: ISO'ya kurulacak paketler (bagimlilik sirasi). sha256'lar paketler/SHA256SUMS'tan; yayinlanmis olanlar
 # archive.org dizinindeki (atspkg.index.yayinlanan) sha256 ile de AYNI olmali (ISO ile kanal ayni dosyayi dagitir).
 PK=/veri/atasos-paket/paketler
-ISO_PAKETLER=(openssl-3.5.9-1 curl-8.23.0-1 sudo-1.9.17p2-1 expat-2.10.0-1 zlib-1.3.2-1 atasos-guncelleme-1.1-1
+ISO_PAKETLER=(openssl-3.5.9-1 curl-8.23.0-1 sudo-1.9.17p2-1 expat-2.10.0-1 zlib-1.3.2-1 atasos-guncelleme-1.3-1
               nspr-4.36-1 sqlite-3.49.1-1 nss-3.108-1 libcups-2.4.11-1 atasos-xdg-open-1.0-1
-              xdg-desktop-portal-1.18.4-1 xdg-desktop-portal-kde-6.3.4-1)
+              xdg-desktop-portal-1.18.4-1 xdg-desktop-portal-kde-6.3.4-1 fastfetch-2.71.0-1 atasos-masaustu-1.0-1)
 for p in "${ISO_PAKETLER[@]}"; do
     f=$p.atspkg.tar.zst; h=$(awk -v f="$f" '$2==f{print $1}' $PK/SHA256SUMS 2>/dev/null)
     [ -n "$h" ] && [ -f $PK/$f ] && [ "$(sha256sum $PK/$f | cut -d' ' -f1)" = "$h" ] \
@@ -557,6 +559,37 @@ echo "  $V_OSSL | ${V_CURL%% (*} | $V_SUDO"
 EKS=$(crk sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/bin/xmlwf /usr/bin/sqlite3 /usr/bin/certutil /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-desktop-portal-kde /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/bin/plasmashell /usr/bin/kwin_x11 /usr/bin/konsole /usr/bin/flatpak /usr/bin/calamares; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
 [ -z "$EKS" ] || { echo "HATA: paketlerden sonra eksik kutuphane:"; echo "$EKS" | sed 's/^/    /'; exit 1; }
 echo "  eksik kutuphane yok (temel programlar + yeni paketler)"
+# v37: atasOS MASAUSTU yeni kullanicilarin (canli 'eren' + Calamares'in kurdugu kullanici) varsayilani.
+# KDE uygulamalari renkleri kdeglobals'taki [Colors:*] gruplarindan okur (sema adindan degil) -> gruplar AtasOS.colors'tan.
+# skel'deki hazir panel dosyasi silinir: Plasma ilk giriste gorunum paketinin duzenini (ortada yuzen alt panel) kurar.
+python3 -I - "$K" <<'PYK' || { echo "HATA: varsayilan gorunum yazilamadi"; exit 1; }
+import sys, re
+K = sys.argv[1]
+def gruplar(metin):
+    g, ad = {}, None
+    for satir in metin.splitlines():
+        m = re.match(r'^\[(.+)\]$', satir.strip())
+        if m: ad = m.group(1); g.setdefault(ad, []); continue
+        if ad is not None and satir.strip(): g[ad].append(satir)
+    return g
+renk = gruplar(open(K + "/usr/share/color-schemes/AtasOS.colors", encoding="utf-8").read())
+kg = gruplar(open(K + "/etc/xdg/kdeglobals", encoding="utf-8").read())
+for ad in list(kg):
+    if ad.startswith(("Colors:", "ColorEffects:")) or ad == "WM": del kg[ad]
+for ad, satirlar in renk.items():
+    if ad.startswith(("Colors:", "ColorEffects:")) or ad == "WM": kg[ad] = satirlar
+def ayarla(g, grup, anahtar, deger):
+    g.setdefault(grup, []); g[grup] = [x for x in g[grup] if not x.startswith(anahtar + "=")] + [anahtar + "=" + deger]
+ayarla(kg, "General", "ColorScheme", "AtasOS")
+ayarla(kg, "KDE", "LookAndFeelPackage", "org.atasos.masaustu")
+open(K + "/etc/xdg/kdeglobals", "w", encoding="utf-8").write("\n\n".join("[%s]\n%s" % (a, "\n".join(v)) for a, v in kg.items()) + "\n")
+pr = gruplar(open(K + "/etc/xdg/plasmarc", encoding="utf-8").read())
+ayarla(pr, "Theme", "name", "atasos")
+open(K + "/etc/xdg/plasmarc", "w", encoding="utf-8").write("\n\n".join("[%s]\n%s" % (a, "\n".join(v)) for a, v in pr.items()) + "\n")
+open(K + "/etc/xdg/ksplashrc", "w", encoding="utf-8").write("[KSplash]\nEngine=KSplashQML\nTheme=org.atasos.masaustu\n")
+PYK
+rm -f $K/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc $K/home/eren/.config/plasma-org.kde.plasma.desktop-appletsrc
+echo "  varsayilan gorunum: atasOS masaustu (kdeglobals renkleri, plasmarc atasos, ksplash, skel panel dosyasi silindi)"
 umount $K/sys $K/proc $K/dev/pts $K/dev
 
 echo
@@ -704,7 +737,7 @@ done
 c=$(grep -c '/\.ssh/' $O/icerik.txt); printf '  temiz (herhangi bir .ssh/): %s\n' "$([ "$c" -eq 0 ] && echo evet || { H=1; echo "HAYIR, $c girdi <<<"; })"
 grep -qE '^\s*initialPartitioningChoice:\s*none' $K/etc/calamares/modules/partition.conf && grep -qE '^\s*prompt-install:\s*true' $K/etc/calamares/settings.conf \
     && echo "  disk guvenligi: on-secim yok + son onay var" || { echo "  disk guvenligi: AYAR TUTMADI <<<"; H=1; }
-grep -q '^ColorScheme=BreezeDark' $K/etc/xdg/kdeglobals && grep -q 'icon=atasos' $K/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc && echo "  masaustu: koyu tema + panel logosu (atasos-59)" || { echo "  masaustu ayarlari YOK (atasos-59 calismamis) <<<"; H=1; }
+grep -q '^ColorScheme=AtasOS' $K/etc/xdg/kdeglobals && grep -q '^LookAndFeelPackage=org.atasos.masaustu' $K/etc/xdg/kdeglobals && grep -q '^BackgroundNormal=24,31,43' $K/etc/xdg/kdeglobals && grep -q '^name=atasos' $K/etc/xdg/plasmarc && grep -q '^Theme=org.atasos.masaustu' $K/etc/xdg/ksplashrc && [ ! -e $K/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc ] && [ -f $K/usr/share/plasma/look-and-feel/org.atasos.masaustu/contents/layouts/org.kde.plasma.desktop-layout.js ] && echo "  masaustu: atasOS gorunumu varsayilan (renkler, tema, acilis ekrani, ortada yuzen panel)" || { echo "  atasOS masaustu varsayilani YOK <<<"; H=1; }
 grep -q '^SessionDir=/usr/share/atasos/wayland-oturum-yok' $K/etc/sddm.conf.d/30-atasos-klavye.conf && echo "  giris ekrani: Wayland gizli, yalniz X11" || { echo "  Wayland gizleme YOK <<<"; H=1; }
 grep -q 'x11Secildi' $K/usr/share/sddm/themes/atasOS/Main.qml && echo "  giris temasi: guncel (X11 varsayilan)" || { echo "  giris temasi eski <<<"; H=1; }
 [ -f $O/agac/boot/grub/themes/atasos/theme.txt ] && echo "  ISO GRUB temasi: var" || { echo "  ISO GRUB temasi YOK <<<"; H=1; }
@@ -763,7 +796,7 @@ done
 for y in usr/libexec/xdg-desktop-portal usr/libexec/xdg-desktop-portal-kde usr/share/xdg-desktop-portal/portals/kde.portal \
          usr/lib/systemd/user/xdg-desktop-portal.service usr/share/dbus-1/services/org.freedesktop.portal.Desktop.service \
          usr/lib/libnss3.so usr/lib/libsoftokn3.chk usr/lib/libnspr4.so usr/lib/libsqlite3.so.0 usr/bin/sqlite3 usr/lib/libcups.so.2 usr/bin/xdg-open \
-         usr/bin/atasos-guncelle usr/share/applications/atasos-guncelle.desktop usr/share/polkit-1/actions/org.atasos.guncelle.policy \
+         usr/bin/atasos-guncelle usr/bin/fastfetch usr/bin/atasos-hosgeldin etc/xdg/autostart/atasos-hosgeldin.desktop usr/share/plasma/plasmoids/org.atasos.baslat/contents/ui/main.qml usr/share/applications/atasos-guncelle.desktop usr/share/polkit-1/actions/org.atasos.guncelle.policy \
          etc/skel/.config/user-dirs.dirs etc/skel/İndirilenler etc/skel/Resimler; do
     grep -qE "^squashfs-root/$y$" $O/icerik.txt && printf '  var : /%s\n' "$y" || { printf '  YOK : /%s <<<\n' "$y"; H=1; }
 done

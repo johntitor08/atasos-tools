@@ -1,0 +1,18 @@
+#!/bin/sh
+# atasOS'a Hos Geldin. Argumansiz: pencereyi acar. --otomatik: oturum acilisinda (gizlenmediyse) acar.
+# Pencerenin dugmeleri bu betigi YALNIZ asagidaki sabit seceneklerle cagirir.
+GIZLE="${XDG_CONFIG_HOME:-$HOME/.config}/atasos-hosgeldin-gizle"
+case "${1:-}" in
+    --otomatik) [ -e "$GIZLE" ] && exit 0; exec plasmawindowed org.atasos.hosgeldin ;;
+    --durum)    d=""; [ -x /usr/bin/calamares ] && [ -e /usr/share/applications/calamares.desktop ] && d="canli"
+                [ -e "$GIZLE" ] && d="$d gizli"; echo "${d:-kurulu}" ;;
+    --gizle)    mkdir -p "$(dirname "$GIZLE")" && : > "$GIZLE" ;;
+    --goster)   rm -f "$GIZLE" ;;
+    --kur)      k=$(sed -n "s/^Exec=//p" /usr/share/applications/calamares.desktop | head -n1); [ -n "$k" ] && exec sh -c "$k" ;;
+    --guncelle) exec konsole --hold -e /usr/bin/atasos-guncelle ;;
+    --gorunum)  exec plasma-apply-lookandfeel -a org.atasos.masaustu --resetLayout ;;
+    --ayarlar)  exec systemsettings ;;
+    --bilgi)    exec konsole --hold -e fastfetch ;;
+    "")         exec plasmawindowed org.atasos.hosgeldin ;;
+    *)          echo "kullanim: atasos-hosgeldin [--otomatik]" >&2; exit 1 ;;
+esac

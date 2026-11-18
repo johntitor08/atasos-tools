@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=atasOS'a Hoş Geldin
+Name[en]=Welcome to atasOS
+Comment=İlk adımlar ve kısayollar
+Comment[en]=First steps and shortcuts
+Exec=/usr/bin/atasos-hosgeldin
+Icon=atasos
+Terminal=false
+Categories=System;

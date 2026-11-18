@@ -1,0 +1,15 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [ { "Name": "atasOS" } ],
+        "Category": "",
+        "Description": "atasOS desktop: floating centered bottom panel, atasOS colors, atasOS launcher and splash",
+        "Description[tr]": "atasOS masaüstü: ortada yüzen alt panel, atasOS renkleri, atasOS başlatıcısı ve açılış ekranı",
+        "Id": "org.atasos.masaustu",
+        "License": "GPL-2.0-or-later",
+        "Name": "atasOS",
+        "Version": "1.0",
+        "Website": "https://archive.org/details/atasos-live"
+    },
+    "X-Plasma-APIVersion": "2"
+}

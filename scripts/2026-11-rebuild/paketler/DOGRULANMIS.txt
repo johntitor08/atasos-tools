@@ -5,7 +5,7 @@
 33f0c26325ac16e541e56e2f028e5f827b919a7fa73628faca54d7e62b9c8367  atasos-guncelle  # atasOS'un kendi dosyasi (Claude yazdi)
 9c573c46d545decd60e746d95e438ab4f283f383418b05ff5a0f40bf79ee28ce  atasos-guncelle.desktop  # atasOS'un kendi dosyasi (Claude yazdi)
 fb886a01118f23e98a36f57dbcefb1b9d4ebec891bf07d8890cfec65f232559d  org.atasos.guncelle.policy  # atasOS'un kendi dosyasi (Claude yazdi)
-51fc95521e87d30521ec7b17ef769c5f8a4aafe78faf484de5f11aee6f935a92  temel.list  # atasOS'un kendi dosyasi (Claude yazdi; 1.1: expat, zlib eklendi)
+cccf81c75bcecf3384947b339e98355ee0ba11a2854cabe0a2ea2f2e9f3e3945  temel.list  # atasOS'un kendi dosyasi (Claude yazdi; 1.1: expat, zlib; 1.2: fastfetch; 1.3: atasos-masaustu)
 c624ba2998fc65df1163a49641ff3f9ab73138b11641d92c86bee0fb01b1bc7f  expat-2.10.0.tar.xz  # imza: Sebastian Pipping 3176EF7DB2367F1FCA4F306B1F9B0E909AF37285
 d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3  zlib-1.3.2.tar.xz  # imza: Mark Adler 5ED46A6721D365587791E2AA783FCD8E58BCAFBA
 # 2026-11-18 (v37 masaustu/portal): kaynaklar atasOS'ta (p4) indirilmisti; asagidaki bagimsiz kaynaklarla dogrulandi.
@@ -18,3 +18,5 @@ b858aa1e74e80c862790dbb912906e6eab8b1e4db9339cd759473af62b461e65  xdg-desktop-po
 59c62f679d2dac721dd537d83ad3075c129d07e1056e0a592117f711979f0821  xdg-desktop-portal-kde-6.3.4.tar.xz  # imza: KDE/Jonathan Riddell E0A3EB202F8E57528E13E72FD7574483BB57B18D (KDE release-keyring ile ayni)
 c901efc5cbc66d93459a51a165e16475d3d61dd296c86746864df85a5569984c  xdg-open  # atasOS'un kendi dosyasi (scripts/xdg-open)
 4f44d48ab32b9a7a2052670edc4baef78bdf365dcf1dcc5a6690e2f55093df5e  xdg-desktop-portal-kde-6.3.4-cupssuz.patch  # atasOS'un kendi yamasi (recipes/xdg-desktop-portal; Qt CUPS'suz)
+e71d93de41e8e4b2554c36d2ae51758112a21ecf3a8c98605a2c689251e62987  fastfetch-2.71.0.tar.gz  # GitHub fastfetch-cli/fastfetch 2.71.0 etiketi; Arch Linux PKGBUILD sha256 ile ayni (imza yayimlanmiyor)
+f80706192b45a4c78ac538e7c08d2593494844ebc7375ac110c2b591cab1b057  atasos-masaustu-1.0.tar.gz  # atasOS'un kendi dosyasi: atasos-tools/masaustu (Claude yazdi; renk, tema, gorunum, Baslat, Hos Geldin)

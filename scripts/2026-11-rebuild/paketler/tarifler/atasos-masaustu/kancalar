@@ -1,0 +1,6 @@
+kurulum_sonrasi() {
+    command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 --noincremental >/dev/null 2>&1
+    update-desktop-database -q /usr/share/applications 2>/dev/null
+    true
+}
+kaldirma_sonrasi() { update-desktop-database -q /usr/share/applications 2>/dev/null; true; }

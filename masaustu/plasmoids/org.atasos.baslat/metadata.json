@@ -1,0 +1,17 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [ { "Name": "atasOS" } ],
+        "Category": "Application Launchers",
+        "Description": "atasOS application launcher: search, all applications, power buttons",
+        "Description[tr]": "atasOS uygulama başlatıcısı: arama, tüm uygulamalar, güç düğmeleri",
+        "Icon": "atasos",
+        "Id": "org.atasos.baslat",
+        "License": "GPL-2.0-or-later",
+        "Name": "atasOS Launcher",
+        "Name[tr]": "atasOS Başlat",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-Provides": [ "org.kde.plasma.launchermenu" ]
+}

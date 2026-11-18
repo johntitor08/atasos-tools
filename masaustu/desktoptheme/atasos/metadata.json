@@ -1,0 +1,13 @@
+{
+    "KPlugin": {
+        "Authors": [ { "Name": "atasOS" } ],
+        "Description": "atasOS desktop theme (Breeze shapes, atasOS colors)",
+        "Description[tr]": "atasOS masaüstü teması (Breeze biçimleri, atasOS renkleri)",
+        "EnabledByDefault": true,
+        "Id": "atasos",
+        "License": "LGPL",
+        "Name": "atasOS",
+        "Version": "1.0"
+    },
+    "X-Plasma-API": "5.0"
+}

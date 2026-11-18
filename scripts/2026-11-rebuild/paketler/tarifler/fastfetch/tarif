@@ -1,0 +1,17 @@
+# atasOS tarifi: fastfetch 2.71.0 (sistem bilgisi: dagitim, cekirdek, masaustu, donanim; neofetch'in hizli halefi).
+# Ek ozellikler (Vulkan, Wayland, DBus, ImageMagick...) calisma aninda dlopen ile yuklenir; yoksa o satir atlanir.
+name=fastfetch
+version=2.71.0
+release=1
+description="Sistem bilgisi araci (fastfetch)"
+depends=()
+source=(fastfetch-2.71.0.tar.gz)
+
+build() {
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_TESTS=OFF -DBUILD_FLASHFETCH=OFF
+    ninja -C build
+    DESTDIR="$pkgdir" cmake --install build
+    [ -x "$pkgdir/usr/bin/fastfetch" ] || { echo "usr/bin/fastfetch yok"; exit 1; }
+}

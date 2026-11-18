@@ -1,0 +1,16 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [ { "Name": "atasOS" } ],
+        "Category": "System Information",
+        "Description": "Welcome to atasOS: first steps and shortcuts",
+        "Description[tr]": "atasOS'a hoş geldin: ilk adımlar ve kısayollar",
+        "Icon": "atasos",
+        "Id": "org.atasos.hosgeldin",
+        "License": "GPL-2.0-or-later",
+        "Name": "Welcome to atasOS",
+        "Name[tr]": "atasOS'a Hoş Geldin",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

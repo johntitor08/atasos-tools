@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=atasOS'a Hoş Geldin
+Exec=/usr/bin/atasos-hosgeldin --otomatik
+Icon=atasos
+Terminal=false
+NoDisplay=true
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2
