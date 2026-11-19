@@ -21,3 +21,4 @@ c901efc5cbc66d93459a51a165e16475d3d61dd296c86746864df85a5569984c  xdg-open  # at
 e71d93de41e8e4b2554c36d2ae51758112a21ecf3a8c98605a2c689251e62987  fastfetch-2.71.0.tar.gz  # GitHub fastfetch-cli/fastfetch 2.71.0 etiketi; Arch Linux PKGBUILD sha256 ile ayni (imza yayimlanmiyor)
 f80706192b45a4c78ac538e7c08d2593494844ebc7375ac110c2b591cab1b057  atasos-masaustu-1.0.tar.gz  # atasOS'un kendi dosyasi: atasos-tools/masaustu (Claude yazdi; renk, tema, gorunum, Baslat, Hos Geldin)
 185f49b2a3b37d16a5b7f86807261aa44d668fd25a9049fb95bf3bdb1057abc5  atasos-masaustu-1.1.tar.gz  # atasOS'un kendi dosyasi: atasos-tools/masaustu 1.1 (fastfetch logosu, Hos Geldin yuksekligi)
+394e2b46a182df2a9068b122fbc0b1a931c645ca3ce493c3d9dc4d096fd16c2c  atasos-masaustu-1.2.tar.gz  # atasOS'un kendi dosyasi: atasos-tools/masaustu 1.2 (GTK yazi DPI duzeltmesi)
