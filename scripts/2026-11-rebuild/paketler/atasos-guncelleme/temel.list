@@ -7,3 +7,6 @@ expat
 zlib
 fastfetch
 atasos-masaustu
+libxml2
+libpng
+libarchive

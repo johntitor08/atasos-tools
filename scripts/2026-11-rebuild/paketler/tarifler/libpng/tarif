@@ -1,0 +1,27 @@
+# atasOS tarifi: libpng 1.6.59 (v36'da 1.6.43; ayni 1.6 serisi, libpng16.so.16). APNG yamasi yok (p5'te de yoktu).
+name=libpng
+version=1.6.59
+release=1
+description="libpng PNG kutuphanesi - guvenlik guncellemesi"
+depends=()
+source=(libpng-1.6.59.tar.gz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR
+    eski=$(readlink -f /usr/lib/$1 2>/dev/null); yeni=$(readlink -f "$pkgdir/usr/lib/$1")
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $1 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $1 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+build() {
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    ./configure --prefix=/usr --disable-static
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    rm -f "$pkgdir"/usr/lib/libpng*.la
+    [ -f "$pkgdir/usr/lib/libpng16.so.16" ] || { echo "libpng16.so.16 /usr/lib altinda degil"; exit 1; }
+    abi_denetle libpng16.so.16
+}

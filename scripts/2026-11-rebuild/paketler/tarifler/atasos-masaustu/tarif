@@ -1,11 +1,11 @@
 # atasOS tarifi: atasOS masaustu (Plasma uzerinde): renk semasi, masaustu temasi, gorunum paketi (ortada yuzen alt
-# panel + acilis ekrani), atasOS Baslat (uygulama baslatici), atasOS'a Hos Geldin, fastfetch atasOS logosu (1.1), %200'de GTK/Firefox yazi DPI'i (1.2). Kaynak: atasos-tools/masaustu.
+# panel + acilis ekrani), atasOS Baslat (uygulama baslatici), atasOS'a Hos Geldin, fastfetch atasOS logosu (1.1), %200'de GTK/Firefox yazi DPI'i (1.2), %100'e donunce geri alma (1.3). Kaynak: atasos-tools/masaustu.
 name=atasos-masaustu
-version=1.2
+version=1.3
 release=1
 description="atasOS masaustu: tema, panel duzeni, baslatici, acilis ekrani, hos geldin"
 depends=()
-source=(atasos-masaustu-1.2.tar.gz)
+source=(atasos-masaustu-1.3.tar.gz)
 
 build() {
     S=usr/share
