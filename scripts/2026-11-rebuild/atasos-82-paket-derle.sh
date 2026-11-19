@@ -148,9 +148,10 @@ for p in "${PAKETLER[@]}"; do
                  for f in /usr/share/dbus-1/services/org.freedesktop.portal.Desktop.service /usr/lib/systemd/user/xdg-desktop-portal.service; do [ -e $K$f ] && echo "  portal: $f var" || { echo "  portal: $f YOK <<<"; H=1; }; done ;;
         atasos-masaustu) for f in /usr/share/plasma/look-and-feel/org.atasos.masaustu/contents/layouts/org.kde.plasma.desktop-layout.js \
                      /usr/share/plasma/plasmoids/org.atasos.baslat/contents/ui/main.qml /usr/share/plasma/plasmoids/org.atasos.hosgeldin/contents/ui/main.qml \
-                     /usr/share/plasma/desktoptheme/atasos/colors /usr/share/color-schemes/AtasOS.colors /etc/xdg/autostart/atasos-hosgeldin.desktop; do
+                     /usr/share/plasma/desktoptheme/atasos/colors /usr/share/color-schemes/AtasOS.colors /etc/xdg/autostart/atasos-hosgeldin.desktop /etc/xdg/fastfetch/config.jsonc /usr/share/atasos/fastfetch/atasos.txt; do
                      [ -s $K$f ] && echo "  masaustu: $f var" || { echo "  masaustu: $f YOK <<<"; H=1; }; done
-                 cr sh -n /usr/bin/atasos-hosgeldin && [ -n "$(cr /usr/bin/atasos-hosgeldin --durum)" ] && echo "  atasos-hosgeldin: calisiyor" || { echo "  atasos-hosgeldin sorunlu <<<"; H=1; } ;;
+                 cr sh -n /usr/bin/atasos-hosgeldin && [ -n "$(cr /usr/bin/atasos-hosgeldin --durum)" ] && echo "  atasos-hosgeldin: calisiyor" || { echo "  atasos-hosgeldin sorunlu <<<"; H=1; }
+                 [ -x $K/usr/bin/fastfetch ] && { c=$(cr fastfetch --pipe -s os 2>&1 | head -1); echo "  fastfetch atasOS ayariyla: $c"; grep -q "atasOS" <<< "$c" || H=1; } ;;
         fastfetch) v=$(cr fastfetch --version 2>&1 | head -1); echo "  fastfetch: $v"; grep -q "2\.71\.0" <<< "$v" || H=1
                  c=$(cr fastfetch --pipe --logo none -s os:kernel 2>&1 | head -2 | tr "\n" " "); echo "  fastfetch cikti: $c"; grep -q "Kernel" <<< "$c" || H=1 ;;
         xdg-desktop-portal-kde) for f in /usr/share/xdg-desktop-portal/portals/kde.portal /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.kde.service; do

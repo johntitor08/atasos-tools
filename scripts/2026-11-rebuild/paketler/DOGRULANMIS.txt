@@ -20,3 +20,4 @@ c901efc5cbc66d93459a51a165e16475d3d61dd296c86746864df85a5569984c  xdg-open  # at
 4f44d48ab32b9a7a2052670edc4baef78bdf365dcf1dcc5a6690e2f55093df5e  xdg-desktop-portal-kde-6.3.4-cupssuz.patch  # atasOS'un kendi yamasi (recipes/xdg-desktop-portal; Qt CUPS'suz)
 e71d93de41e8e4b2554c36d2ae51758112a21ecf3a8c98605a2c689251e62987  fastfetch-2.71.0.tar.gz  # GitHub fastfetch-cli/fastfetch 2.71.0 etiketi; Arch Linux PKGBUILD sha256 ile ayni (imza yayimlanmiyor)
 f80706192b45a4c78ac538e7c08d2593494844ebc7375ac110c2b591cab1b057  atasos-masaustu-1.0.tar.gz  # atasOS'un kendi dosyasi: atasos-tools/masaustu (Claude yazdi; renk, tema, gorunum, Baslat, Hos Geldin)
+185f49b2a3b37d16a5b7f86807261aa44d668fd25a9049fb95bf3bdb1057abc5  atasos-masaustu-1.1.tar.gz  # atasOS'un kendi dosyasi: atasos-tools/masaustu 1.1 (fastfetch logosu, Hos Geldin yuksekligi)

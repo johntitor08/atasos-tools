@@ -1,11 +1,11 @@
 # atasOS tarifi: atasOS masaustu (Plasma uzerinde): renk semasi, masaustu temasi, gorunum paketi (ortada yuzen alt
-# panel + acilis ekrani), atasOS Baslat (uygulama baslatici), atasOS'a Hos Geldin. Kaynak: atasos-tools/masaustu.
+# panel + acilis ekrani), atasOS Baslat (uygulama baslatici), atasOS'a Hos Geldin, fastfetch atasOS logosu (1.1). Kaynak: atasos-tools/masaustu.
 name=atasos-masaustu
-version=1.0
+version=1.1
 release=1
 description="atasOS masaustu: tema, panel duzeni, baslatici, acilis ekrani, hos geldin"
 depends=()
-source=(atasos-masaustu-1.0.tar.gz)
+source=(atasos-masaustu-1.1.tar.gz)
 
 build() {
     S=usr/share
@@ -17,6 +17,8 @@ build() {
     install -Dm755 bin/atasos-hosgeldin "$pkgdir/usr/bin/atasos-hosgeldin"
     install -Dm644 applications/atasos-hosgeldin.desktop "$pkgdir/$S/applications/atasos-hosgeldin.desktop"
     install -Dm644 applications/atasos-hosgeldin-otomatik.desktop "$pkgdir/etc/xdg/autostart/atasos-hosgeldin.desktop"
+    install -Dm644 fastfetch/config.jsonc "$pkgdir/etc/xdg/fastfetch/config.jsonc"
+    install -Dm644 fastfetch/atasos.txt "$pkgdir/$S/atasos/fastfetch/atasos.txt"
     find "$pkgdir/$S/plasma" -type d -exec chmod 755 {} +
     find "$pkgdir/$S/plasma" -type f -exec chmod 644 {} +
     for j in "$pkgdir"/$S/plasma/*/*/metadata.json; do python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$j" || { echo "bozuk JSON: $j"; exit 1; }; done

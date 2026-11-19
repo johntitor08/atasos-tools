@@ -33,9 +33,9 @@ PlasmoidItem {
 
     fullRepresentation: ColumnLayout {
         Layout.preferredWidth: Kirigami.Units.gridUnit * 38
-        Layout.preferredHeight: Kirigami.Units.gridUnit * 30
+        Layout.preferredHeight: Kirigami.Units.gridUnit * 26
         Layout.minimumWidth: Kirigami.Units.gridUnit * 28
-        Layout.minimumHeight: Kirigami.Units.gridUnit * 26
+        Layout.minimumHeight: Kirigami.Units.gridUnit * 22
         spacing: Kirigami.Units.largeSpacing
 
         RowLayout {
@@ -44,8 +44,8 @@ PlasmoidItem {
             spacing: Kirigami.Units.largeSpacing * 2
             Kirigami.Icon {
                 source: "atasos"
-                Layout.preferredWidth: Kirigami.Units.iconSizes.enormous
-                Layout.preferredHeight: Kirigami.Units.iconSizes.enormous
+                Layout.preferredWidth: Kirigami.Units.iconSizes.huge
+                Layout.preferredHeight: Kirigami.Units.iconSizes.huge
             }
             ColumnLayout {
                 Layout.fillWidth: true
@@ -71,7 +71,7 @@ PlasmoidItem {
                 property string aciklama
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1      // iki sutun esit genislikte
-                Layout.preferredHeight: Kirigami.Units.gridUnit * 4
+                Layout.preferredHeight: Kirigami.Units.gridUnit * 3.4
                 contentItem: RowLayout {
                     spacing: Kirigami.Units.largeSpacing
                     Kirigami.Icon {
