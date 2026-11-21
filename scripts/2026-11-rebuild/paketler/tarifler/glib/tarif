@@ -1,0 +1,32 @@
+# atasOS tarifi: GLib 2.82.5 (v36'da 2.82.4; ayni 2.82 serisi = ayni ABI). /usr/lib64 (p5 gibi), introspection KAPALI
+# (p5te typelib yok), libmount ACIK, SELinux yok, glib_debug ACIK (p5 gibi: g_slice_debug_tree_statistics sembolu). KDE/Plasma'nin temeli: ABI denetimi 6 kutuphanede.
+name=glib
+version=2.82.5
+release=1
+description="GLib/GIO/GObject kutuphaneleri - guvenlik guncellemesi"
+depends=()
+source=(glib-2.82.5.tar.xz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+build() {
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    meson setup build --prefix=/usr --libdir=lib64 --buildtype=release \
+        -Dintrospection=disabled -Dglib_debug=enabled -Dman-pages=disabled -Dsysprof=disabled \
+        -Dselinux=disabled -Dlibmount=enabled -Dtests=false
+    ninja -C build
+    DESTDIR="$pkgdir" meson install -C build
+    readelf -d "$pkgdir/usr/lib64/libgio-2.0.so.0" | grep -q 'NEEDED.*libmount' || { echo "gio libmount'suz derlendi"; exit 1; }
+    for l in libglib-2.0 libgio-2.0 libgobject-2.0 libgmodule-2.0 libgthread-2.0 libgirepository-2.0; do
+        abi_denetle /usr/lib64 $l.so.0
+    done
+}

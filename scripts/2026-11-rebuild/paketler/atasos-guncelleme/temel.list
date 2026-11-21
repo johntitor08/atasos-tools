@@ -10,3 +10,7 @@ atasos-masaustu
 libxml2
 libpng
 libarchive
+libxslt
+libtasn1
+gnutls
+glib

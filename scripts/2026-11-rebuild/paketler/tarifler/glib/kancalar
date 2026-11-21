@@ -1,0 +1,6 @@
+kurulum_sonrasi() {
+    ldconfig 2>/dev/null
+    glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null
+    [ -d /usr/lib64/gio/modules ] && gio-querymodules /usr/lib64/gio/modules 2>/dev/null
+    true
+}

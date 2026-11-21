@@ -20,7 +20,7 @@ KN=/veri/atasos-iso/kanal
 LOG=$P/derleme-$(date +%Y%m%d-%H%M).log
 PAKETLER=("$@"); [ ${#PAKETLER[@]} -gt 0 ] || PAKETLER=(openssl curl sudo)
 # bagimlilik sirasi: her paket derlenir derlenmez gecici katmana kurulur, sonrakiler ona karsi derlenir (nss -> nspr+sqlite)
-SIRA=(openssl curl sudo expat zlib libxml2 libpng libarchive nspr sqlite nss libcups atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
+SIRA=(openssl curl sudo expat zlib libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
 S2=(); for s in "${SIRA[@]}"; do for p in "${PAKETLER[@]}"; do [ "$p" = "$s" ] && S2+=("$p"); done; done
 for p in "${PAKETLER[@]}"; do [[ " ${SIRA[*]} " == *" $p "* ]] || S2+=("$p"); done
 PAKETLER=("${S2[@]}")
@@ -159,13 +159,22 @@ for p in "${PAKETLER[@]}"; do
         libarchive) v=$(cr bsdtar --version 2>&1 | head -1); echo "  bsdtar: $v"; grep -q "libarchive 3.8.11" <<< "$v" || H=1
                  for oz in zlib liblzma bz2lib libzstd liblz4; do grep -q "$oz" <<< "$v" || { echo "  bsdtar: $oz destegi YOK <<<"; H=1; }; done
                  c=$(cr sh -c 'd=$(mktemp -d) && cd $d && echo atasos > a && bsdtar --zstd -cf a.tar.zst a && rm a && bsdtar -xf a.tar.zst && cat a; rm -rf $d' 2>&1); echo "  bsdtar zstd gidis-donus: $c"; [ "$c" = atasos ] || H=1 ;;
+        libxslt) v=$(cr xsltproc --version 2>&1 | head -1); echo "  libxslt: $v"; grep -q "libxslt 10143" <<< "$v" || H=1
+                 c=$(cr sh -c 'd=$(mktemp -d) && printf "<a><b>atasos</b></a>" > $d/x.xml && printf "<xsl:stylesheet version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\"><xsl:output method=\"text\"/><xsl:template match=\"/\"><xsl:value-of select=\"/a/b\"/></xsl:template></xsl:stylesheet>" > $d/s.xsl && xsltproc $d/s.xsl $d/x.xml; rm -rf $d' 2>&1); echo "  xsltproc donusum: $c"; [ "$c" = atasos ] || H=1 ;;
+        libtasn1) v=$(cr asn1Parser --version 2>&1 | head -1); echo "  libtasn1: $v"; grep -q "4\.21\.0" <<< "$v" || H=1 ;;
+        gnutls)  v=$(cr gnutls-cli --version 2>&1 | head -1); echo "  gnutls: $v"; grep -q "3\.8\.14" <<< "$v" || H=1
+                 cmp -s $K/usr/lib/libgnutls.so.30 $K/usr/lib64/libgnutls.so.30 && echo "  gnutls: lib ve lib64 kopyalari ayni" || { echo "  gnutls: lib64 kopyasi farkli <<<"; H=1; }
+                 c=$(cr sh -c 'gnutls-cli --port 443 archive.org < /dev/null 2>&1 | grep -c "Handshake was completed"'); echo "  gnutls TLS (archive.org, sertifika dogrulamali): $c"; [ "$c" = 1 ] || H=1 ;;
+        glib)    v=$(cr gsettings --version 2>&1); echo "  glib (gsettings): $v"; [ "$v" = 2.82.5 ] || H=1
+                 c=$(cr sh -c 'gio info / 2>&1 | grep -c "standard::type"'); echo "  gio info /: $c alan"; [ "${c:-0}" -ge 1 ] || H=1
+                 cr glib-compile-schemas --strict --dry-run /usr/share/glib-2.0/schemas >/dev/null 2>&1 && echo "  glib-compile-schemas: semalar gecerli" || { echo "  glib-compile-schemas HATA <<<"; H=1; } ;;
         fastfetch) v=$(cr fastfetch --version 2>&1 | head -1); echo "  fastfetch: $v"; grep -q "2\.71\.0" <<< "$v" || H=1
                  c=$(cr fastfetch --pipe --logo none -s os:kernel 2>&1 | head -2 | tr "\n" " "); echo "  fastfetch cikti: $c"; grep -q "Kernel" <<< "$c" || H=1 ;;
         xdg-desktop-portal-kde) for f in /usr/share/xdg-desktop-portal/portals/kde.portal /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.kde.service; do
                      [ -e $K$f ] && echo "  portal-kde: $f var" || { echo "  portal-kde: $f YOK <<<"; H=1; }; done ;;
     esac
 done
-ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
+ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
 [ -z "$ek" ] && echo "  eksik kutuphane yok" || { echo "  EKSIK KUTUPHANE <<<"; echo "$ek" | sed 's/^/    /'; H=1; }
 cr atspkg listele 2>&1 | sed 's/^/  kurulu: /'
 [ $H -eq 0 ] || { echo "  DURDU: duman testi basarisiz; paketler yayinlanmamali."; exit 1; }

@@ -1,0 +1,45 @@
+# atasOS tarifi: GnuTLS 3.8.14 (v36'da 3.8.8; libgnutls.so.30). p5'teki gibi: guven deposu /etc/ssl/certs/ca-certificates.crt,
+# p11-kit YOK, libunistring gomulu, libtasn1 AYRI PAKET (3.8.14 gomulu kopyayi kaldirdi), IDN/zstd/brotli/TPM yok. v36'da kutuphane /usr/lib VE /usr/lib64'te iki
+# ozdes kopya (OpenSSL gibi): paket ikisini de gunceller. /etc/gnutls/config'e dokunulmaz.
+name=gnutls
+version=3.8.14
+release=1
+description="GnuTLS TLS kutuphanesi - guvenlik guncellemesi"
+depends=(libtasn1)
+source=(gnutls-3.8.14.tar.xz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+build() {
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    ./configure --prefix=/usr --disable-static --docdir=/usr/share/doc/gnutls-3.8.14 \
+        --with-default-trust-store-file=/etc/ssl/certs/ca-certificates.crt \
+        --without-p11-kit --with-included-unistring \
+        --without-idn --without-zstd --without-brotli --without-tpm --without-tpm2 --disable-guile
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    rm -f "$pkgdir"/usr/lib/libgnutls*.la
+    readelf -d "$pkgdir/usr/lib/libgnutls.so.30" | grep -q 'NEEDED.*libtasn1\.so\.6' || { echo "gnutls libtasn1.so.6'ya bagli degil"; exit 1; }
+    for l in libp11-kit libunistring libidn2; do
+        readelf -d "$pkgdir/usr/lib/libgnutls.so.30" | grep -q "NEEDED.*$l\." && { echo "gnutls $l'ye bagli (p5'te degildi)"; exit 1; }
+    done
+    strings "$pkgdir/usr/lib/libgnutls.so.30" | grep -qx /etc/ssl/certs/ca-certificates.crt || { echo "guven deposu yolu yanlis"; exit 1; }
+    [ ! -e "$pkgdir/etc/gnutls/config" ] || { echo "paket /etc/gnutls/config yaziyor"; exit 1; }
+    abi_denetle /usr/lib libgnutls.so.30
+    abi_denetle /usr/lib libgnutlsxx.so.30
+    # /usr/lib64 kopyalari (v36'da ozdes ikinci kopya vardi)
+    install -d "$pkgdir/usr/lib64"
+    for l in libgnutls libgnutlsxx; do
+        r=$(readlink -f "$pkgdir/usr/lib/$l.so.30"); cp -a "$r" "$pkgdir/usr/lib64/"
+        ln -sf "$(basename "$r")" "$pkgdir/usr/lib64/$l.so.30"; ln -sf "$l.so.30" "$pkgdir/usr/lib64/$l.so"
+    done
+}

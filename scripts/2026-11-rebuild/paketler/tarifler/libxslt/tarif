@@ -1,0 +1,38 @@
+# atasOS tarifi: libxslt 1.1.43 + 5 guvenlik yamasi. 1.1.45 libxml2 >= 2.15.1 istiyor; atasOS libxml2 2.13 serisinde
+# (ABI icin bilerek) -> Alpine'in yaptigi gibi 1.1.43 + Alpine'in 4 yamasi (CVE-2025-10911, CVE-2026-9947, CVE-2026-87636,
+# CVE-2026-125350) + Arch'in type confusion yamasi (CVE-2026-11196). Hepsi Chromium guvenlik ekibinden. v36'da 1.1.42.
+name=libxslt
+version=1.1.43
+release=1
+description="libxslt XSLT kutuphanesi ve xsltproc - guvenlik guncellemesi (5 yama)"
+depends=()
+source=(libxslt-1.1.43.tar.xz
+        libxslt-1.1.43-CVE-2025-10911.patch libxslt-1.1.43-CVE-2026-9947.patch libxslt-1.1.43-CVE-2026-87636.patch
+        libxslt-1.1.43-CVE-2026-125350.patch libxslt-1.1.43-CVE-2026-11196.patch)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+build() {
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    cd "$srcdir/libxslt-1.1.43"
+    for y in "$srcdir"/libxslt-1.1.43-CVE-*.patch; do patch -Np1 -i "$y" || { echo "yama uygulanamadi: $y"; exit 1; }; done
+    grep -q 'xmlDictOwns(ctxt->dict, inst->children->content)' libxslt/attributes.c || { echo "CVE-2026-9947 yamasi yok"; exit 1; }
+    grep -q 'cur->type == XML_ELEMENT_NODE) && (cur->ns != NULL)' libxslt/xslt.c || { echo "CVE-2026-11196 yamasi yok"; exit 1; }
+    # --with-debugger: yardim metni "(on)" dese de 1.1.43 configure yalniz acikca verilince acar; p5 (1.1.42) debugger
+    # sembolleriyle (xsltSetDebuggerCallbacks ...) derlenmisti, ABI denetimi yakaladi
+    ./configure --prefix=/usr --disable-static --without-python --with-debugger --docdir=/usr/share/doc/libxslt-1.1.43
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    rm -f "$pkgdir"/usr/lib/libxslt.la "$pkgdir"/usr/lib/libexslt.la
+    abi_denetle /usr/lib libxslt.so.1
+    abi_denetle /usr/lib libexslt.so.0
+}

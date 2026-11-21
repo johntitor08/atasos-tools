@@ -1,0 +1,16 @@
+# atasOS tarifi: libtasn1 4.21.0 (ASN.1 kutuphanesi). v36'da YOK: eski gnutls kendi icinde gomulu kopya kullaniyordu;
+# gnutls 3.8.14 gomulu kopyayi kaldirdi ve sistem libtasn1'i istiyor. Yeni kutuphane (libtasn1.so.6), uzerine yazilan dosya yok.
+name=libtasn1
+version=4.21.0
+release=1
+description="libtasn1 ASN.1 kutuphanesi (GnuTLS bagimliligi)"
+depends=()
+source=(libtasn1-4.21.0.tar.gz)
+
+build() {
+    ./configure --prefix=/usr --disable-static --docdir=/usr/share/doc/libtasn1-4.21.0
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    rm -f "$pkgdir"/usr/lib/libtasn1.la
+    [ -f "$pkgdir/usr/lib/libtasn1.so.6" ] || { echo "libtasn1.so.6 /usr/lib altinda degil"; exit 1; }
+}

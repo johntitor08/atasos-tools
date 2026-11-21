@@ -1,0 +1,1 @@
+kurulum_sonrasi() { ldconfig 2>/dev/null || true; }
