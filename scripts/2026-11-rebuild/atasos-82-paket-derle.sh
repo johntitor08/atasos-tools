@@ -168,6 +168,8 @@ for p in "${PAKETLER[@]}"; do
         glib)    v=$(cr gsettings --version 2>&1); echo "  glib (gsettings): $v"; [ "$v" = 2.82.5 ] || H=1
                  c=$(cr sh -c 'gio info / 2>&1 | grep -c "standard::type"'); echo "  gio info /: $c alan"; [ "${c:-0}" -ge 1 ] || H=1
                  cr glib-compile-schemas --strict --dry-run /usr/share/glib-2.0/schemas >/dev/null 2>&1 && echo "  glib-compile-schemas: semalar gecerli" || { echo "  glib-compile-schemas HATA <<<"; H=1; } ;;
+        atasos-guncelleme) cr bash -n /usr/bin/atasos-guncelle && cr bash -n /usr/bin/atasos-guncelleme-denetle && [ -s $K/etc/xdg/autostart/atasos-guncelleme-denetle.desktop ] \
+                     && echo "  guncelleyici + gunluk denetleyici: sozdizimi tamam, autostart var" || { echo "  guncelleyici/denetleyici sorunlu <<<"; H=1; } ;;
         fastfetch) v=$(cr fastfetch --version 2>&1 | head -1); echo "  fastfetch: $v"; grep -q "2\.71\.0" <<< "$v" || H=1
                  c=$(cr fastfetch --pipe --logo none -s os:kernel 2>&1 | head -2 | tr "\n" " "); echo "  fastfetch cikti: $c"; grep -q "Kernel" <<< "$c" || H=1 ;;
         xdg-desktop-portal-kde) for f in /usr/share/xdg-desktop-portal/portals/kde.portal /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.kde.service; do

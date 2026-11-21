@@ -42,3 +42,5 @@ dfeb8418499779927a8a9c720c8ee195bf4a4c7d9a1cd55692d4e68b354dbf9e  libxslt-1.1.43
 45fcc40a7a9e8e3a83a3d30e0ccd959af2d8b707a6a05246b0a41a2d4613eecc  libxslt-1.1.43-CVE-2026-125350.patch  # Alpine aports libxslt yamasi, APKBUILD sha512 ile ayni (Chromium; okundu)
 43f3da9af6f86f763a218add5d57cd3135802a0c07c8dddc3638e977399762e9  libxslt-1.1.43-CVE-2026-11196.patch  # = Arch 0003 (type confusion, Chromium), 1.1.43e temiz uygulaniyor
 1d8a444a223cc5464240777346e125de51d8e6abf0b8bac742ac84609167dc87  libtasn1-4.21.0.tar.gz  # imza: Simon Josefsson A3CC9C870B9D310ABAD4CF2F51722B08FE4745A2 (libtasn1) + Alpine sha512 ayni
+67583fbe444990c5b2db13be12b154a7f212bcbac22521b10255b1f14bc4b39a  atasos-guncelleme-denetle  # atasOS'un kendi dosyasi (Claude yazdi; 1.6: gunluk denetim + bildirim)
+87048f6dc9edf97f6373d85f6bbe0ee8123db6a16fdbb1aa188a28849a79ac47  atasos-guncelleme-denetle.desktop  # atasOS'un kendi dosyasi (Claude yazdi; 1.6 autostart)

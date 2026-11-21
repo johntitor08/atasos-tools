@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=atasOS güncelleme denetleyicisi
+Name[en]=atasOS update checker
+Comment=Günde bir kez imzalı atasOS deposuna bakar, güncelleme varsa bildirir
+Exec=/usr/bin/atasos-guncelleme-denetle --arkaplan
+Icon=system-software-update
+Terminal=false
+NoDisplay=true
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2

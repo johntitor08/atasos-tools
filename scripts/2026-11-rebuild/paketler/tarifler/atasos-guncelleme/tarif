@@ -1,15 +1,19 @@
 # atasOS tarifi: "Sistemi Guncelle" (atasos-guncelle + menu + polkit + temel paket listesi).
 # v36'da bir kez elle: sudo atspkg guncelle && sudo atspkg kur atasos-guncelleme ; sonra menuden "Sistemi Guncelle".
 name=atasos-guncelleme
-version=1.5
+version=1.6
 release=1
-description="atasOS sistem guncelleyicisi (Sistemi Guncelle menusu)"
+description="atasOS sistem guncelleyicisi (Sistemi Guncelle menusu + gunluk guncelleme bildirimi)"
 depends=(atspkg)
-source=(atasos-guncelle atasos-guncelle.desktop org.atasos.guncelle.policy temel.list)
+source=(atasos-guncelle atasos-guncelle.desktop org.atasos.guncelle.policy temel.list
+        atasos-guncelleme-denetle atasos-guncelleme-denetle.desktop)
 
 build() {
     install -Dm755 "$srcdir/atasos-guncelle"            "$pkgdir/usr/bin/atasos-guncelle"
     install -Dm644 "$srcdir/atasos-guncelle.desktop"    "$pkgdir/usr/share/applications/atasos-guncelle.desktop"
     install -Dm644 "$srcdir/org.atasos.guncelle.policy" "$pkgdir/usr/share/polkit-1/actions/org.atasos.guncelle.policy"
     install -Dm644 "$srcdir/temel.list"                 "$pkgdir/usr/share/atasos-guncelleme/temel.list"
+    # 1.6: gunluk denetim + KDE bildirimi (kullanici olarak, root yok; hicbir sey kurmaz)
+    install -Dm755 "$srcdir/atasos-guncelleme-denetle"         "$pkgdir/usr/bin/atasos-guncelleme-denetle"
+    install -Dm644 "$srcdir/atasos-guncelleme-denetle.desktop" "$pkgdir/etc/xdg/autostart/atasos-guncelleme-denetle.desktop"
 }
