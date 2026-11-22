@@ -1,11 +1,22 @@
-# atasOS tarifi: NSPR (Netscape Portable Runtime). NSS'in ve Electron uygulamalarinin (Claude Desktop) bagimliligi.
-# BLFS 12.3 ile ayni secenekler. Statik .a kurulmaz (rules.mk sed'i).
+# atasOS tarifi: NSPR 4.41 (Netscape Portable Runtime; v37/v38 ISO'sunda 4.36). NSS'in ve Electron uygulamalarinin
+# (Claude Desktop) bagimliligi. BLFS ile ayni secenekler. Statik .a kurulmaz (rules.mk sed'i).
 name=nspr
-version=4.36
+version=4.41
 release=1
 description="Netscape Portable Runtime (NSS ve Electron bagimliligi)"
 depends=()
-source=(nspr-4.36.tar.gz)
+source=(nspr-4.41.tar.gz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
 
 build() {
     cd nspr
@@ -15,4 +26,5 @@ build() {
     make -j"$(nproc)"
     make DESTDIR="$pkgdir" install
     [ -f "$pkgdir/usr/lib/libnspr4.so" ] || { echo "libnspr4.so /usr/lib altinda degil"; exit 1; }
+    for l in libnspr4 libplc4 libplds4; do abi_denetle /usr/lib $l.so; done
 }

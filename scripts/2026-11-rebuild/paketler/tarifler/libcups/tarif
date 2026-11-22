@@ -1,14 +1,29 @@
-# atasOS tarifi: yalniz libcups (CUPS 2.4.11 istemci kutuphanesi). Yazdirma servisi (cupsd) KURULMAZ.
-# Electron/Chromium yazdirma diyalogu icin libcups.so.2'ye baglanir; olmazsa Claude Desktop hic acilmaz.
+# atasOS tarifi: yalniz libcups (CUPS 2.4.20 istemci kutuphanesi; v37/v38 ISO'sunda 2.4.11). Yazdirma servisi
+# (cupsd) KURULMAZ. Electron/Chromium yazdirma diyalogu icin libcups.so.2'ye baglanir; olmazsa Claude Desktop hic acilmaz.
 # Ileride tam CUPS kurulursa bu paket kaldirilmali (ayni dosyalar).
 name=libcups
-version=2.4.11
+version=2.4.20
 release=1
-description="CUPS istemci kutuphanesi (libcups.so.2) - yazdirma servisi olmadan"
+description="CUPS istemci kutuphanesi (libcups.so.2) - yazdirma servisi olmadan - guvenlik guncellemesi"
 depends=()
-source=(cups-2.4.11-source.tar.gz)
+# cups-2.4.20-no-dnssd.patch: upstream 23a183b63a4c; 2.4.20 avahi'siz derlenmiyor (dest.c num_local/local_dests)
+source=(cups-2.4.20-source.tar.gz cups-2.4.20-no-dnssd.patch)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
 
 build() {
+    # birden cok kaynak var -> atspkg kaynak dizinine kendisi girmez (nss gibi)
+    cd "$srcdir/cups-2.4.20" || exit 1
+    patch -Np1 -i "$srcdir/cups-2.4.20-no-dnssd.patch"
     ./configure --prefix=/usr --libdir=/usr/lib --with-tls=openssl --without-rcdir
     make -C cups -j"$(nproc)"
     install -Dm755 cups/libcups.so.2 "$pkgdir/usr/lib/libcups.so.2"
@@ -17,4 +32,5 @@ build() {
     install -m644 cups/adminutil.h cups/array.h cups/cups.h cups/dir.h cups/file.h cups/http.h \
                   cups/ipp.h cups/language.h cups/ppd.h cups/pwg.h cups/raster.h cups/sidechannel.h \
                   cups/transcode.h cups/versioning.h cups/backend.h "$pkgdir/usr/include/cups/"
+    abi_denetle /usr/lib libcups.so.2
 }

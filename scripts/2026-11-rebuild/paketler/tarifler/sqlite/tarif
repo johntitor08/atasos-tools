@@ -1,13 +1,24 @@
-# atasOS tarifi: SQLite 3.49.1 (BLFS 12.3 surumu).
-# DIKKAT: 3.48+ yeni autosetup configure varsayilan olarak SONAME KOYMAZ. --soname=legacy olmadan
-# libsqlite3.so.0 SONAME'i olusmaz ve buna baglanan her sey NEEDED=libsqlite3.so olarak kalir.
+# atasOS tarifi: SQLite 3.54.1 (v37/v38 ISO'sunda 3.49.1; 6. parti ile kanala girdi).
+# DIKKAT: 3.48-3.49 autosetup configure varsayilan olarak SONAME KOYMAZDI (3.54'te varsayilan legacy);
+# --soname=legacy yine de acikca verilir: libsqlite3.so.0 SONAME'i sart, NSS ve digerleri ona bagli.
 # NSS bundan SONRA derlenmeli (NSS_USE_SYSTEM_SQLITE=1).
 name=sqlite
-version=3.49.1
+version=3.54.1
 release=1
-description="SQLite veritabani kutuphanesi ve sqlite3 kabugu"
+description="SQLite veritabani kutuphanesi ve sqlite3 kabugu - guvenlik guncellemesi"
 depends=()
-source=(sqlite-autoconf-3490100.tar.gz)
+source=(sqlite-autoconf-3540100.tar.gz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
 
 build() {
     ./configure --prefix=/usr --disable-static --enable-fts4 --enable-fts5 --soname=legacy \
@@ -16,4 +27,5 @@ build() {
     make DESTDIR="$pkgdir" install
     readelf -d "$pkgdir/usr/lib/libsqlite3.so" | grep -q 'SONAME.*libsqlite3\.so\.0' \
         || { echo "libsqlite3 SONAME libsqlite3.so.0 degil (--soname=legacy calismadi)"; exit 1; }
+    abi_denetle /usr/lib libsqlite3.so.0
 }

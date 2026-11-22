@@ -1,0 +1,31 @@
+# atasOS tarifi: XZ Utils 5.8.4 (xz/lzma araclari + liblzma). Kanala ILK kez giriyor.
+# p5/v38: /usr/bin/xz ve liblzma.pc 5.6.3, liblzma.so.5 -> 5.8.1 (elle konmus); bu paket hepsini 5.8.4'te birlestirir.
+# KRITIK: kmod (cekirdek modulu yukleme), systemd-journal, libarchive, python lzma liblzma.so.5'e bagli -> ABI denetimi.
+# Eski liblzma.so.5.6.3 / 5.8.1 dosyalari hicbir pakete ait degil; yerinde kalir (zararsiz, kullanilmaz).
+name=xz
+version=5.8.4
+release=1
+description="XZ Utils (xz/lzma sikistirma + liblzma) - guncelleme"
+depends=()
+source=(xz-5.8.4.tar.xz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+build() {
+    ./configure --prefix=/usr --disable-static --docdir=/usr/share/doc/xz-5.8.4
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    [ "$(readlink "$pkgdir/usr/lib/liblzma.so.5")" = liblzma.so.5.8.4 ] || { echo "liblzma.so.5 -> 5.8.4 degil"; exit 1; }
+    [ "$(readlink "$pkgdir/usr/lib/liblzma.so")" = liblzma.so.5.8.4 ] || { echo "liblzma.so -> 5.8.4 degil"; exit 1; }
+    readelf -d "$pkgdir/usr/lib/liblzma.so.5.8.4" | grep -q 'SONAME.*liblzma\.so\.5' || { echo "liblzma SONAME degisti"; exit 1; }
+    abi_denetle /usr/lib liblzma.so.5
+}

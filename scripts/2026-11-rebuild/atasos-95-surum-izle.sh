@@ -77,6 +77,8 @@ KAYNAK = {
     "sqlite":    (lambda: [f"{a}.{int(b)}.{int(c)}" for a, b, c in liste("https://sqlite.org/download.html", r"sqlite-autoconf-(\d)(\d\d)(\d\d)00\.tar")], None, ""),
     "libcups":   (lambda: github("OpenPrinting/cups", r"v(2\.4\.\d+)"), "2.4", "yalniz kutuphane"),
     "xdg-desktop-portal": (lambda: github("flatpak/xdg-desktop-portal", r"(1\.\d+\.\d+)"), "1.18", "1.20+ GStreamer ister"),
+    "xz":        (lambda: github("tukaani-project/xz", r"v(\d+\.\d+\.\d+)"), None, ""),
+    "dbus":      (lambda: liste("https://dbus.freedesktop.org/releases/dbus/", r"dbus-(1\.16\.\d+)\.tar\.xz"), "1.16", "kararli seri"),
     "xdg-desktop-portal-kde": (lambda: liste("https://download.kde.org/stable/plasma/", r'href="(6\.\d+\.\d+)/"') + liste("https://download.kde.org/Attic/plasma/", r'href="(6\.\d+\.\d+)/"'), "6.3", "Plasma surumuyle ayni olmali"),
 }
 # kanalda henuz olmayan ama izlenen temel paketler: v36/p5'teki surum
@@ -84,10 +86,8 @@ TEMEL = {
     "freetype":  ("2.13.3", lambda: liste("https://download.savannah.gnu.org/releases/freetype/", r"freetype-(\d+\.\d+\.\d+)\.tar\.xz"), None),
     "harfbuzz":  ("10.1.0", lambda: github("harfbuzz/harfbuzz", r"(\d+\.\d+\.\d+)"), None),
     "libjpeg-turbo": ("3.0.4", lambda: github("libjpeg-turbo/libjpeg-turbo", r"(\d+\.\d+\.\d+)"), None),
-    "xz":        ("5.8.1", lambda: github("tukaani-project/xz", r"v(\d+\.\d+\.\d+)"), None),
     "python":    ("3.13.7", lambda: liste("https://www.python.org/ftp/python/", r'href="(3\.13\.\d+)/"'), "3.13"),
     "git":       ("2.50.1", lambda: liste("https://mirrors.edge.kernel.org/pub/software/scm/git/", r"git-(\d+\.\d+\.\d+)\.tar\.xz"), None),
-    "dbus":      ("1.16.2", lambda: liste("https://dbus.freedesktop.org/releases/dbus/", r"dbus-(1\.16\.\d+)\.tar\.xz"), "1.16"),
     "polkit":    ("125", lambda: github("polkit-org/polkit", r"(\d+)"), None),
     "pipewire":  ("1.2.7", lambda: [t.lstrip("v") for t in re.findall(r'"name":\s*"(\d+\.\d+\.\d+)"', al("https://gitlab.freedesktop.org/api/v4/projects/pipewire%2Fpipewire/repository/tags?per_page=100"))], None),
 }

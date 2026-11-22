@@ -1,0 +1,69 @@
+# atasOS tarifi: D-Bus 1.16.4 (p5/v38'de 1.16.2; 1.16.4 guvenlik duzeltmeleri, CVE-2026-120749 vb.). Kanala ILK kez giriyor.
+# KRITIK: sistem veri yolu (systemd, NetworkManager, polkit, SDDM, Plasma) buna bagli. Bu yuzden:
+# - p5'teki derleme birebir: meson, /usr/lib, systemd ACIK, X11 autolaunch KAPALI (dbus-launch libX11'siz),
+#   apparmor/selinux/libaudit yok, belge (xml/doxygen) yok, kullanici oturumu (user dbus.socket) ACIK.
+# - /etc/dbus-1 PAKETE GIRMEZ: system.d/ altinda baska paketlerin politikalari (wpa_supplicant, ModemManager,
+#   Flatpak) var; session.conf/system.conf orada yalniz bos yorum. /var/lib/dbus/machine-id baglantisi da girmez.
+# - dbus-daemon-launch-helper: tar sahipleri 0:0 paketlendigi icin pakette 0700 root:root (setuid'siz, guvenli);
+#   root:messagebus 4110 iznini kurulum kancasi verir (upstream meson_post_install ile ayni: u+s, u+x, g+x).
+# - Calisan dbus-daemon yeniden BASLATILMAZ (oturumlari dusururdu); yeni surum bir sonraki acilista devreye girer.
+name=dbus
+version=1.16.4
+release=1
+description="D-Bus ileti veri yolu - guvenlik guncellemesi (yeni surum yeniden baslatinca devreye girer)"
+depends=()
+source=(dbus-1.16.4.tar.xz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    # libdbus'a ozel: LIBDBUS_PRIVATE_<surum> sembolleri upstream geregi HER surumde yeniden adlanir; yalniz dbus'in
+    # kendi programlari (dbus-daemon, dbus-send ...) kullanir ve onlar bu pakette birlikte yenilenir -> karsilastirma
+    # disi. Genel ABI (LIBDBUS_1_3) birebir denetlenir; disaridan PRIVATE kullanan var mi ayrica bakilir (ozel_denetle).
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | grep -v '^LIBDBUS_PRIVATE_\|@@LIBDBUS_PRIVATE_' | sort -u) \
+                         <(nm -D --defined-only "$yeni" | awk '{print $3}' | grep -v '^LIBDBUS_PRIVATE_\|@@LIBDBUS_PRIVATE_' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+build() {
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    meson setup build --prefix=/usr --libdir=lib --sysconfdir=/etc --localstatedir=/var \
+        --buildtype=release --wrap-mode=nofallback -Druntime_dir=/run \
+        -Dsystemd=enabled -Duser_session=true -Dx11_autolaunch=disabled \
+        -Dapparmor=disabled -Dselinux=disabled -Dlibaudit=disabled \
+        -Ddoxygen_docs=disabled -Dxml_docs=disabled -Dducktype_docs=disabled -Dqt_help=disabled \
+        -Dmodular_tests=disabled -Dinstalled_tests=false
+    ninja -C build
+    DESTDIR="$pkgdir" meson install -C build
+    rm -rf "$pkgdir/etc" "$pkgdir/var" "$pkgdir/run"
+    H="$pkgdir/usr/libexec/dbus-daemon-launch-helper"
+    [ -f "$H" ] || { echo "launch-helper yok"; exit 1; }
+    chown root:root "$H"; chmod 0700 "$H"
+    [ -f "$pkgdir/usr/lib/libdbus-1.so.3" ] || [ -L "$pkgdir/usr/lib/libdbus-1.so.3" ] || { echo "libdbus-1.so.3 /usr/lib altinda degil"; exit 1; }
+    readelf -d "$pkgdir/usr/bin/dbus-daemon" | grep -q 'NEEDED.*libsystemd' || { echo "dbus-daemon systemd'siz derlendi"; exit 1; }
+    ! readelf -d "$pkgdir/usr/bin/dbus-launch" | grep -q 'NEEDED.*libX11' || { echo "dbus-launch X11'e bagli (p5'te degil)"; exit 1; }
+    for f in usr/share/dbus-1/system.conf usr/share/dbus-1/session.conf usr/lib/systemd/system/dbus.service \
+             usr/lib/systemd/system/dbus.socket usr/lib/systemd/user/dbus.socket usr/lib/sysusers.d/dbus.conf \
+             usr/lib/tmpfiles.d/dbus.conf usr/lib/pkgconfig/dbus-1.pc; do
+        [ -e "$pkgdir/$f" ] || { echo "$f pakette yok"; exit 1; }
+    done
+    abi_denetle /usr/lib libdbus-1.so.3
+    ozel_denetle
+}
+
+ozel_denetle() {
+    # sistemde LIBDBUS_PRIVATE isteyen her ikili bu pakette yenisiyle degisiyor olmali; yoksa o program bozulurdu
+    local f yol kotu=""
+    for f in /usr/bin/* /usr/sbin/* /usr/libexec/* /usr/libexec/*/* /usr/lib/*.so* /usr/lib64/*.so*; do
+        [ -f "$f" ] && [ ! -L "$f" ] || continue
+        readelf -V "$f" 2>/dev/null | grep -q 'Name: LIBDBUS_PRIVATE_' || continue
+        yol=$f; case $f in /usr/lib/libdbus-1.so.3.*) continue ;; esac
+        [ -e "$pkgdir$yol" ] || kotu="$kotu $yol"
+    done
+    [ -z "$kotu" ] || { echo "ABI: su programlar libdbus OZEL sembollerini kullaniyor ama bu pakette yok:$kotu"; exit 1; }
+    echo "ABI: libdbus ozel sembollerini yalniz bu paketin kendi programlari kullaniyor"
+}

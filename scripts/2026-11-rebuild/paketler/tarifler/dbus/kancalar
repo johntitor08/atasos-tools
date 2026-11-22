@@ -1,0 +1,13 @@
+# dbus kurulum kancasi: launch-helper'a upstream izinleri (root:messagebus 4110). Sira onemli: chown setuid'i siler,
+# o yuzden once chgrp sonra chmod. messagebus grubu yoksa setuid VERILMEZ (guvenli taraf); sistem hizmeti etkinlestirme
+# calismaz ama veri yolu calisir.
+kurulum_sonrasi() {
+    ldconfig 2>/dev/null
+    H=/usr/libexec/dbus-daemon-launch-helper
+    if [ -f "$H" ] && getent group messagebus >/dev/null; then
+        chown root:messagebus "$H" && chmod 4110 "$H"
+    else
+        echo "UYARI: messagebus grubu yok; $H setuid yapilmadi"
+    fi
+    true
+}

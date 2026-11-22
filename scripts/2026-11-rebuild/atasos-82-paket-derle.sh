@@ -20,7 +20,7 @@ KN=/veri/atasos-iso/kanal
 LOG=$P/derleme-$(date +%Y%m%d-%H%M).log
 PAKETLER=("$@"); [ ${#PAKETLER[@]} -gt 0 ] || PAKETLER=(openssl curl sudo)
 # bagimlilik sirasi: her paket derlenir derlenmez gecici katmana kurulur, sonrakiler ona karsi derlenir (nss -> nspr+sqlite)
-SIRA=(openssl curl sudo expat zlib libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
+SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
 S2=(); for s in "${SIRA[@]}"; do for p in "${PAKETLER[@]}"; do [ "$p" = "$s" ] && S2+=("$p"); done; done
 for p in "${PAKETLER[@]}"; do [[ " ${SIRA[*]} " == *" $p "* ]] || S2+=("$p"); done
 PAKETLER=("${S2[@]}")
@@ -79,6 +79,22 @@ for p in "${PAKETLER[@]}"; do
     D=$P/tarifler/$p
     for f in ${KAYNAK[$p]}; do cp -f "$P/kaynak/$f" "$D/$f"; done
     rm -f "$D"/*.atspkg.tar.zst
+    # p5'te olmayan ama ISO'da/kanalda ESKI surumu olan paketler (nss 3.108, sqlite 3.49.1 ...): once eski dogrulanmis
+    # paketi gecici katmana kur -> ABI denetimi gercek eski kutuphaneyle yapilir + v38 kullanicisinin yukseltme yolu denenir
+    if [ ! -d $K/var/lib/atspkg/db/$p ]; then
+        yv=$(bash -c '. "$1"; echo "$version-$release"' _ "$D/tarif")
+        E=$(ls $P/paketler/$p-[0-9]*.atspkg.tar.zst 2>/dev/null | sort -V | tail -1)
+        ev=${E##*/}; ev=${ev#$p-}; ev=${ev%.atspkg.tar.zst}
+        if [ -n "$E" ] && [ "$ev" != "$yv" ] && [ "$(printf '%s\n%s\n' "$ev" "$yv" | sort -V | tail -1)" = "$yv" ]; then
+            h=$(awk -v f="${E##*/}" '$2==f{print $1}' $P/paketler/SHA256SUMS)
+            if [ -n "$h" ] && [ "$(sha256sum "$E" | cut -d' ' -f1)" = "$h" ]; then
+                cp -f "$E" $K/tmp/ && cr atspkg kur "/tmp/${E##*/}" > "$D/eski-kurulum.log" 2>&1 \
+                    || { echo "  HATA: eski ${E##*/} gecici katmana kurulamadi:"; tail -n 5 "$D/eski-kurulum.log" | sed 's/^/    /'; exit 1; }
+                rm -f "$K/tmp/${E##*/}"
+                echo "  once eski surum kuruldu (ABI + yukseltme denemesi): ${E##*/}"
+            else echo "  UYARI: ${E##*/} SHA256SUMS ile tutmuyor; eski surum kurulmadi, ABI denetimi p5'e gore"; fi
+        fi
+    fi
     B=$(date +%s)
     echo "== $p derleniyor (kayit: $D/derleme.log)"
     if ! cr atspkg derle /mnt/tarifler/$p > "$D/derleme.log" 2>&1; then
@@ -101,7 +117,7 @@ echo "########## 3/4  PAKET DENETIMI ##########"
 H=0
 for p in "${PAKETLER[@]}"; do
     F=${DOSYA[$p]}; L=$(tar -tvf "$F")
-    yasak=$(tar -tf "$F" | sed 's|^\./||' | grep -E '^(etc/sudoers|etc/sudo\.conf|etc/sudo_logsrvd\.conf|etc/ssl/openssl\.cnf|etc/passwd|etc/shadow|etc/group)$|^(etc/sudoers\.d|etc/ssl/certs|tmp|mnt|root|home|var/lib/sudo|run)(/|$)' || true)
+    yasak=$(tar -tf "$F" | sed 's|^\./||' | grep -E '^(etc/sudoers|etc/sudo\.conf|etc/sudo_logsrvd\.conf|etc/ssl/openssl\.cnf|etc/passwd|etc/shadow|etc/group)$|^(etc/sudoers\.d|etc/ssl/certs|etc/dbus-1|tmp|mnt|root|home|var/lib/sudo|var/lib/dbus|run)(/|$)' || true)
     [ -z "$yasak" ] && echo "  $p: yasak yol yok" || { echo "  $p: YASAK YOL <<<"; echo "$yasak" | sed 's/^/      /'; H=1; }
     X=$(mktemp -d /run/atasos-paket.XXXX); tar -xf "$F" -C "$X"
     rp=$(find "$X" -type f \( -name '*.so*' -o -perm -u+x \) -exec sh -c 'readelf -d "$1" 2>/dev/null | grep -E "R(UN)?PATH" | grep -c -E "/mnt/tarifler|/tmp|work/" >/dev/null && echo "$1"' _ {} \; | sed "s|$X/||")
@@ -111,6 +127,9 @@ for p in "${PAKETLER[@]}"; do
         sudo) grep -qE '^-rws..x..x .* (\./)?usr/bin/sudo$' <<< "$L" && echo "  sudo: setuid root" || { echo "  sudo: setuid YOK <<<"; H=1; } ;;
         openssl) for y in usr/lib/libcrypto.so.3 usr/lib64/libcrypto.so.3 usr/lib/libssl.so.3 usr/lib64/libssl.so.3 usr/bin/openssl; do
                      grep -qE " (\./)?$y$" <<< "$L" || { echo "  openssl: $y YOK <<<"; H=1; }; done; echo "  openssl: lib + lib64 kopyalari var" ;;
+        # launch-helper pakette setuid'siz 0700; root:messagebus 4110'u kurulum kancasi verir (tar sahipleri 0:0 paketler)
+        dbus) grep -qE '^-rwx------ .* (\./)?usr/libexec/dbus-daemon-launch-helper$' <<< "$L" && echo "  dbus: launch-helper pakette 0700 (setuid'i kanca verir)" || { echo "  dbus: launch-helper izni beklenmedik <<<"; grep launch-helper <<< "$L" | sed 's/^/      /'; H=1; }
+              tar -xOf "$F" .INSTALL 2>/dev/null | grep -q 'chmod 4110' && echo "  dbus: kurulum kancasi var" || { echo "  dbus: .INSTALL kancasi YOK <<<"; H=1; } ;;
     esac
 done
 [ $H -eq 0 ] || { echo "  DURDU: paket denetimi basarisiz."; exit 1; }
@@ -134,15 +153,29 @@ for p in "${PAKETLER[@]}"; do
         sudo)    v=$(cr sudo -V 2>&1 | head -1); echo "  sudo: $v"; grep -q "1.9.17p2" <<< "$v" || H=1
                  cr sudo -V 2>&1 | grep -q -- '--without-pam' && echo "  sudo: PAM'siz (ozgun gibi)" || { echo "  sudo: --without-pam YOK <<<"; H=1; }
                  cr visudo -c 2>&1 | sed 's/^/  visudo: /' ;;
-        nspr)    v=$(cr nspr-config --version 2>&1); echo "  nspr: $v"; case "$v" in 4.36|4.36.0) ;; *) H=1;; esac ;;
-        sqlite)  v=$(cr sqlite3 --version 2>&1 | cut -d' ' -f1); echo "  sqlite3: $v"; [ "$v" = 3.49.1 ] || H=1
+        xz)      v=$(cr xz --version 2>&1 | head -2 | tr '\n' ' '); echo "  xz: $v"; [ "$(grep -o '5\.8\.4' <<< "$v" | wc -l)" = 2 ] || { echo "  xz/liblzma 5.8.4 degil <<<"; H=1; }
+                 c=$(cr sh -c 'echo atasos | xz -9e | xz -d && echo atasos | lzma | unlzma' 2>&1 | tr '\n' ' '); echo "  xz/lzma gidis-donus: $c"; [ "$c" = "atasos atasos " ] || H=1
+                 c=$(cr python3 -c 'import lzma; print(lzma.decompress(lzma.compress(b"atasos")).decode())' 2>&1); echo "  python lzma: $c"; [ "$c" = atasos ] || H=1
+                 c=$(cr kmod --version 2>&1 | grep -o '+XZ'); echo "  kmod (liblzma'ya bagli, modul yukleme): ${c:-XZ YOK}"; [ "$c" = +XZ ] || H=1 ;;
+        dbus)    v=$(cr dbus-daemon --version 2>&1 | head -1); echo "  dbus: $v"; grep -q "1\.16\.4" <<< "$v" || H=1
+                 # chroot ICINDE: grup adi atasOS'un /etc/group'undan (messagebus=18; Kubuntu'da 996, disaridan UNKNOWN gorunur)
+                 c=$(cr stat -c '%a %U %G' /usr/libexec/dbus-daemon-launch-helper); echo "  launch-helper: $c (kanca sonrasi)"; [ "$c" = "4110 root messagebus" ] || H=1
+                 c=$(cr dbus-run-session -- dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.GetId 2>&1 | grep -c string)
+                 echo "  oturum veri yolu (dbus-run-session + dbus-send): $c"; [ "$c" = 1 ] || H=1
+                 for k in '<user>messagebus</user>' '<listen>unix:path=/run/dbus/system_bus_socket</listen>' '<servicehelper>/usr/libexec/dbus-daemon-launch-helper</servicehelper>' '<pidfile>/run/dbus/pid</pidfile>'; do
+                     grep -qF "$k" $K/usr/share/dbus-1/system.conf && grep -qF "$k" $A/usr/share/dbus-1/system.conf || { echo "  system.conf: $k farkli <<<"; H=1; }; done
+                 echo "  system.conf: kullanici/soket/yardimci/pid eskisiyle ayni"
+                 for f in /etc/dbus-1/system.d/wpa_supplicant.conf /etc/dbus-1/system.conf /var/lib/dbus/machine-id; do [ -e $K$f ] || [ -L $K$f ] || { echo "  $f kayboldu <<<"; H=1; }; done ;;
+        nspr)    v=$(cr nspr-config --version 2>&1); echo "  nspr: $v"; case "$v" in 4.41|4.41.0) ;; *) H=1;; esac ;;
+        sqlite)  v=$(cr sqlite3 --version 2>&1 | cut -d' ' -f1); echo "  sqlite3: $v"; [ "$v" = 3.54.1 ] || H=1
                  c=$(cr sqlite3 :memory: "create virtual table t using fts5(x); insert into t values('atasos'); select x from t where t match 'atasos';" 2>&1)
                  echo "  sqlite fts5 sorgusu: $c"; [ "$c" = atasos ] || H=1 ;;
-        nss)     v=$(cr nss-config --version 2>&1); echo "  nss: $v"; case "$v" in 3.108|3.108.0) ;; *) H=1;; esac
+        nss)     v=$(cr nss-config --version 2>&1); echo "  nss: $v"; case "$v" in 3.134|3.134.0) ;; *) H=1;; esac
                  c=$(cr sh -c 'd=$(mktemp -d) && certutil -N -d sql:$d --empty-password && certutil -L -d sql:$d >/dev/null && ls $d/cert9.db >/dev/null && echo ok; rm -rf $d' 2>&1)
                  echo "  certutil sql: veritabani (softokn3 + sistem sqlite): $c"; [ "$c" = ok ] || H=1 ;;
         libcups) c=$(cr python3 -c 'import ctypes; l=ctypes.CDLL("libcups.so.2"); l.cupsGetDefault; print("ok")' 2>&1)
-                 echo "  libcups.so.2 yuklenip sembol bulundu: $c"; [ "$c" = ok ] || H=1 ;;
+                 echo "  libcups.so.2 yuklenip sembol bulundu: $c"; [ "$c" = ok ] || H=1
+                 c=$(cr sh -c 'strings /usr/lib/libcups.so.2 | grep -m1 -o "CUPS/2\.4\.[0-9]*"'); echo "  libcups surumu: $c"; [ "$c" = CUPS/2.4.20 ] || H=1 ;;
         atasos-xdg-open) cr sh -n /usr/bin/xdg-open && [ -x $K/usr/bin/xdg-open ] && echo "  xdg-open: calistirilabilir, sozdizimi tamam" || { echo "  xdg-open sorunlu <<<"; H=1; } ;;
         xdg-desktop-portal) cr /usr/libexec/xdg-desktop-portal --help >/dev/null 2>&1 && echo "  xdg-desktop-portal: calisiyor (--help)" || { echo "  xdg-desktop-portal calismiyor <<<"; H=1; }
                  for f in /usr/share/dbus-1/services/org.freedesktop.portal.Desktop.service /usr/lib/systemd/user/xdg-desktop-portal.service; do [ -e $K$f ] && echo "  portal: $f var" || { echo "  portal: $f YOK <<<"; H=1; }; done ;;
@@ -169,14 +202,17 @@ for p in "${PAKETLER[@]}"; do
                  c=$(cr sh -c 'gio info / 2>&1 | grep -c "standard::type"'); echo "  gio info /: $c alan"; [ "${c:-0}" -ge 1 ] || H=1
                  cr glib-compile-schemas --strict --dry-run /usr/share/glib-2.0/schemas >/dev/null 2>&1 && echo "  glib-compile-schemas: semalar gecerli" || { echo "  glib-compile-schemas HATA <<<"; H=1; } ;;
         atasos-guncelleme) cr bash -n /usr/bin/atasos-guncelle && cr bash -n /usr/bin/atasos-guncelleme-denetle && [ -s $K/etc/xdg/autostart/atasos-guncelleme-denetle.desktop ] \
-                     && echo "  guncelleyici + gunluk denetleyici: sozdizimi tamam, autostart var" || { echo "  guncelleyici/denetleyici sorunlu <<<"; H=1; } ;;
+                     && echo "  guncelleyici + gunluk denetleyici: sozdizimi tamam, autostart var" || { echo "  guncelleyici/denetleyici sorunlu <<<"; H=1; }
+                 for t in xz dbus nspr sqlite nss libcups; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
+                 [ "$(grep -nx nspr $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" -lt "$(grep -nx nss $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" ] \
+                     && echo "  temel.list: 6. parti var (nspr/sqlite nss'ten once)" || { echo "  temel.list: sira yanlis <<<"; H=1; } ;;
         fastfetch) v=$(cr fastfetch --version 2>&1 | head -1); echo "  fastfetch: $v"; grep -q "2\.71\.0" <<< "$v" || H=1
                  c=$(cr fastfetch --pipe --logo none -s os:kernel 2>&1 | head -2 | tr "\n" " "); echo "  fastfetch cikti: $c"; grep -q "Kernel" <<< "$c" || H=1 ;;
         xdg-desktop-portal-kde) for f in /usr/share/xdg-desktop-portal/portals/kde.portal /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.kde.service; do
                      [ -e $K$f ] && echo "  portal-kde: $f var" || { echo "  portal-kde: $f YOK <<<"; H=1; }; done ;;
     esac
 done
-ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
+ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell /usr/bin/xz /usr/lib/liblzma.so.5 /usr/bin/kmod /usr/lib/systemd/systemd /usr/bin/dbus-daemon /usr/lib/libdbus-1.so.3 /usr/libexec/dbus-daemon-launch-helper /usr/bin/NetworkManager; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
 [ -z "$ek" ] && echo "  eksik kutuphane yok" || { echo "  EKSIK KUTUPHANE <<<"; echo "$ek" | sed 's/^/    /'; H=1; }
 cr atspkg listele 2>&1 | sed 's/^/  kurulu: /'
 [ $H -eq 0 ] || { echo "  DURDU: duman testi basarisiz; paketler yayinlanmamali."; exit 1; }

@@ -1,18 +1,29 @@
-# atasOS tarifi: NSS 3.108 (BLFS 12.3). Firefox kendi icindeki NSS'i kullaniyor; bu sistem NSS'i Electron
-# uygulamalari (Claude Desktop) ve NetworkManager icin.
+# atasOS tarifi: NSS 3.134 (v37/v38 ISO'sunda 3.108). Firefox kendi icindeki NSS'i kullaniyor; bu sistem NSS'i
+# Electron uygulamalari (Claude Desktop) ve NetworkManager icin.
 # - sqlite paketinden SONRA derlenir: NSS_USE_SYSTEM_SQLITE=1 -> libsoftokn3 NEEDED=libsqlite3.so.0
 #   (gomulu sqlite kullanilirsa /usr/lib/libsqlite3.so'yu ezer ve "no version information" uyarisi cikar)
-# - nss-standalone-1.patch: nss-config ve nss.pc uretir (BLFS)
+# - nss-standalone-1.patch: nss-config ve nss.pc uretir (BLFS; 3.134'e temiz uygulaniyor)
 # - .chk dosyalari (FIPS imzalari) derlemede uretilir, pakete girmeli
 name=nss
-version=3.108
+version=3.134
 release=1
-description="Network Security Services (TLS/sertifika kutuphaneleri)"
+description="Network Security Services (TLS/sertifika kutuphaneleri) - guvenlik guncellemesi"
 depends=(nspr sqlite)
-source=(nss-3.108.tar.gz nss-standalone-1.patch)
+source=(nss-3.134.tar.gz nss-standalone-1.patch)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
 
 build() {
-    cd "$srcdir/nss-3.108"
+    cd "$srcdir/nss-3.134"
     patch -Np1 -i "$srcdir/nss-standalone-1.patch"
     cd nss
     # NSS make'i paralel derlemede guvenilir degil; seri.
@@ -31,4 +42,11 @@ build() {
     readelf -d "$pkgdir/usr/lib/libsoftokn3.so" | grep -q 'NEEDED.*libsqlite3\.so\.0' \
         || { echo "libsoftokn3 sistem sqlite'ina (libsqlite3.so.0) bagli degil"; exit 1; }
     [ -f "$pkgdir/usr/lib/libsoftokn3.chk" ] || { echo "libsoftokn3.chk yok"; exit 1; }
+    # eski surumde olan her .so yenisinde de olmali (yoksa yukseltme onu siler) + semboller
+    for l in /usr/lib/libnss3.so /usr/lib/libnssutil3.so /usr/lib/libsmime3.so /usr/lib/libssl3.so \
+             /usr/lib/libsoftokn3.so /usr/lib/libfreebl3.so /usr/lib/libfreeblpriv3.so /usr/lib/libnssckbi.so \
+             /usr/lib/libnssdbm3.so /usr/lib/libnsssysinit.so; do
+        [ -e "$l" ] || [ -e "$pkgdir$l" ] || continue
+        abi_denetle /usr/lib "${l##*/}"
+    done
 }

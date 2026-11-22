@@ -14,3 +14,9 @@ libxslt
 libtasn1
 gnutls
 glib
+xz
+dbus
+nspr
+sqlite
+nss
+libcups
