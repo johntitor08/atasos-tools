@@ -20,7 +20,7 @@ KN=/veri/atasos-iso/kanal
 LOG=$P/derleme-$(date +%Y%m%d-%H%M).log
 PAKETLER=("$@"); [ ${#PAKETLER[@]} -gt 0 ] || PAKETLER=(openssl curl sudo)
 # bagimlilik sirasi: her paket derlenir derlenmez gecici katmana kurulur, sonrakiler ona karsi derlenir (nss -> nspr+sqlite)
-SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
+SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups python git libjpeg-turbo freetype atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
 S2=(); for s in "${SIRA[@]}"; do for p in "${PAKETLER[@]}"; do [ "$p" = "$s" ] && S2+=("$p"); done; done
 for p in "${PAKETLER[@]}"; do [[ " ${SIRA[*]} " == *" $p "* ]] || S2+=("$p"); done
 PAKETLER=("${S2[@]}")
@@ -79,6 +79,17 @@ for p in "${PAKETLER[@]}"; do
     D=$P/tarifler/$p
     for f in ${KAYNAK[$p]}; do cp -f "$P/kaynak/$f" "$D/$f"; done
     rm -f "$D"/*.atspkg.tar.zst
+    # makedepends (tarifte; atspkg okumaz): katmanda yoksa paketler/'deki en yeni dogrulanmis surumu once kur
+    for md in $(bash -c '. "$1"; echo "${makedepends[@]}"' _ "$D/tarif"); do
+        [ -d $K/var/lib/atspkg/db/$md ] && continue
+        E=$(ls $P/paketler/$md-[0-9]*.atspkg.tar.zst 2>/dev/null | sort -V | tail -1)
+        h=$(awk -v f="${E##*/}" '$2==f{print $1}' $P/paketler/SHA256SUMS)
+        [ -n "$E" ] && [ -n "$h" ] && [ "$(sha256sum "$E" | cut -d' ' -f1)" = "$h" ] \
+            || { echo "  HATA: $p icin derleme bagimliligi $md paketler/'de yok ya da dogrulanamadi"; exit 1; }
+        cp -f "$E" $K/tmp/ && cr atspkg kur "/tmp/${E##*/}" > "$D/makedep-$md.log" 2>&1 \
+            || { echo "  HATA: derleme bagimliligi ${E##*/} kurulamadi:"; tail -n 5 "$D/makedep-$md.log" | sed 's/^/    /'; exit 1; }
+        rm -f "$K/tmp/${E##*/}"; echo "  derleme bagimliligi kuruldu: ${E##*/}"
+    done
     # p5'te olmayan ama ISO'da/kanalda ESKI surumu olan paketler (nss 3.108, sqlite 3.49.1 ...): once eski dogrulanmis
     # paketi gecici katmana kur -> ABI denetimi gercek eski kutuphaneyle yapilir + v38 kullanicisinin yukseltme yolu denenir
     if [ ! -d $K/var/lib/atspkg/db/$p ]; then
@@ -166,6 +177,24 @@ for p in "${PAKETLER[@]}"; do
                      grep -qF "$k" $K/usr/share/dbus-1/system.conf && grep -qF "$k" $A/usr/share/dbus-1/system.conf || { echo "  system.conf: $k farkli <<<"; H=1; }; done
                  echo "  system.conf: kullanici/soket/yardimci/pid eskisiyle ayni"
                  for f in /etc/dbus-1/system.d/wpa_supplicant.conf /etc/dbus-1/system.conf /var/lib/dbus/machine-id; do [ -e $K$f ] || [ -L $K$f ] || { echo "  $f kayboldu <<<"; H=1; }; done ;;
+        python)  v=$(cr python3 --version 2>&1); echo "  python: $v"; [ "$v" = "Python 3.13.18" ] || H=1
+                 c=$(cr python3 -c 'import ssl, lzma, bz2, zlib, ctypes, readline, curses, dbm.gnu, uuid, hashlib, pyexpat, sqlite3, decimal, json, venv
+hashlib.sha3_256(); hashlib.blake2b(); ctypes.CDLL("libc.so.6")
+c = sqlite3.connect(":memory:"); c.execute("create virtual table t using fts5(x)")
+print("ok", ssl.OPENSSL_VERSION.split()[1], "sqlite", sqlite3.sqlite_version)' 2>&1); echo "  python standart moduller (ssl/lzma/ctypes/readline/curses/dbm/sqlite3 ...): $c"; grep -qE "^ok 3\.5\.[0-9]+ sqlite 3\.54\.1" <<< "$c" || H=1
+                 c=$(cr python3 -c 'import yaml, markupsafe._speedups, mesonbuild, jinja2, mako; yaml.CLoader; print("ok")' 2>&1); echo "  site-packages C eklentileri (yaml, markupsafe) + meson/jinja2/mako (libxslt.py p5'te zaten bozuk: libxml2mod yok): $c"; [ "$c" = ok ] || H=1
+                 c=$(cr sh -c 'pip3 --version | cut -d" " -f1-2; meson --version' 2>&1 | tr '\n' ' '); echo "  sistem pip + meson (pakete girmedi, calisiyor): $c"; grep -q "^pip 26" <<< "$c" || H=1 ;;
+        git)     v=$(cr git --version 2>&1); echo "  git: $v"; [ "$v" = "git version 2.56.1" ] || H=1
+                 c=$(cr sh -c 'd=$(mktemp -d) && cd $d && git init -q && git -c user.name=a -c user.email=a@b commit -q --allow-empty -m atasos && git log --format=%s; rm -rf $d' 2>&1); echo "  git init/commit/log: $c"; [ "$c" = atasos ] || H=1
+                 c=$(cr sh -c 'git ls-remote https://git.kernel.org/pub/scm/git/git.git refs/heads/master 2>&1 | grep -c refs/heads/master'); echo "  git https (git.kernel.org ls-remote, curl'lu; p5'te calismiyordu): $c"; [ "$c" = 1 ] || H=1 ;;
+        libjpeg-turbo) v=$(cr djpeg -version 2>&1 | head -1); echo "  libjpeg-turbo: $v"; grep -q "3\.2\.1" <<< "$v" || H=1
+                 c=$(cr sh -c 'd=$(mktemp -d) && printf "P6\n2 2\n255\n\377\0\0\0\377\0\0\0\377\377\377\377" > $d/a.ppm && cjpeg -quality 95 $d/a.ppm > $d/a.jpg && djpeg $d/a.jpg | head -c 2; rm -rf $d' 2>&1); echo "  cjpeg/djpeg gidis-donus: $c"; [ "$c" = P6 ] || H=1
+                 c=$(cr python3 -c 'import ctypes; l=ctypes.CDLL("libturbojpeg.so.0"); l.tj3Init; print("ok")' 2>&1); echo "  libturbojpeg (tj3 API): $c"; [ "$c" = ok ] || H=1 ;;
+        freetype) v=$(cr freetype-config --ftversion 2>&1); echo "  freetype: $v"; [ "$v" = 2.15.0 ] || H=1
+                 c=$(cr python3 -c 'import ctypes
+f = ctypes.CDLL("libfreetype.so.6"); lib = ctypes.c_void_p(); f.FT_Init_FreeType(ctypes.byref(lib))
+a, b, c = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(); f.FT_Library_Version(lib, ctypes.byref(a), ctypes.byref(b), ctypes.byref(c)); print("%d.%d.%d" % (a.value, b.value, c.value))' 2>&1); echo "  libfreetype calisma ani surumu: $c"; [ "$c" = 2.15.0 ] || H=1
+                 c=$(cr sh -c 'f=$(find /usr/share/fonts -name "*.ttf" -o -name "*.otf" | head -1); fc-scan --format "%{family}\n" "$f" | head -1' 2>&1); echo "  fontconfig fc-scan (freetype ile yazi tipi ayristirma): $c"; [ -n "$c" ] || H=1 ;;
         nspr)    v=$(cr nspr-config --version 2>&1); echo "  nspr: $v"; case "$v" in 4.41|4.41.0) ;; *) H=1;; esac ;;
         sqlite)  v=$(cr sqlite3 --version 2>&1 | cut -d' ' -f1); echo "  sqlite3: $v"; [ "$v" = 3.54.1 ] || H=1
                  c=$(cr sqlite3 :memory: "create virtual table t using fts5(x); insert into t values('atasos'); select x from t where t match 'atasos';" 2>&1)
@@ -203,7 +232,7 @@ for p in "${PAKETLER[@]}"; do
                  cr glib-compile-schemas --strict --dry-run /usr/share/glib-2.0/schemas >/dev/null 2>&1 && echo "  glib-compile-schemas: semalar gecerli" || { echo "  glib-compile-schemas HATA <<<"; H=1; } ;;
         atasos-guncelleme) cr bash -n /usr/bin/atasos-guncelle && cr bash -n /usr/bin/atasos-guncelleme-denetle && [ -s $K/etc/xdg/autostart/atasos-guncelleme-denetle.desktop ] \
                      && echo "  guncelleyici + gunluk denetleyici: sozdizimi tamam, autostart var" || { echo "  guncelleyici/denetleyici sorunlu <<<"; H=1; }
-                 for t in xz dbus nspr sqlite nss libcups; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
+                 for t in xz dbus nspr sqlite nss libcups python git libjpeg-turbo freetype; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
                  [ "$(grep -nx nspr $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" -lt "$(grep -nx nss $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" ] \
                      && echo "  temel.list: 6. parti var (nspr/sqlite nss'ten once)" || { echo "  temel.list: sira yanlis <<<"; H=1; } ;;
         fastfetch) v=$(cr fastfetch --version 2>&1 | head -1); echo "  fastfetch: $v"; grep -q "2\.71\.0" <<< "$v" || H=1
@@ -212,7 +241,7 @@ for p in "${PAKETLER[@]}"; do
                      [ -e $K$f ] && echo "  portal-kde: $f var" || { echo "  portal-kde: $f YOK <<<"; H=1; }; done ;;
     esac
 done
-ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell /usr/bin/xz /usr/lib/liblzma.so.5 /usr/bin/kmod /usr/lib/systemd/systemd /usr/bin/dbus-daemon /usr/lib/libdbus-1.so.3 /usr/libexec/dbus-daemon-launch-helper /usr/bin/NetworkManager; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
+ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell /usr/bin/xz /usr/lib/liblzma.so.5 /usr/bin/kmod /usr/lib/systemd/systemd /usr/bin/dbus-daemon /usr/lib/libdbus-1.so.3 /usr/libexec/dbus-daemon-launch-helper /usr/bin/NetworkManager /usr/bin/python3.13 /usr/lib/libpython3.13.so.1.0 /usr/bin/git /usr/libexec/git-core/git-remote-https /usr/lib/libjpeg.so.62 /usr/lib/libturbojpeg.so.0 /usr/lib/libfreetype.so.6 /usr/bin/fc-list /usr/lib/libharfbuzz.so.0 /usr/lib/python3.13/site-packages/libxsltmod.so /usr/lib/python3.13/site-packages/yaml/_yaml.cpython-313-x86_64-linux-gnu.so; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
 [ -z "$ek" ] && echo "  eksik kutuphane yok" || { echo "  EKSIK KUTUPHANE <<<"; echo "$ek" | sed 's/^/    /'; H=1; }
 cr atspkg listele 2>&1 | sed 's/^/  kurulu: /'
 [ $H -eq 0 ] || { echo "  DURDU: duman testi basarisiz; paketler yayinlanmamali."; exit 1; }

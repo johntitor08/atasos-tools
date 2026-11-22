@@ -1,0 +1,45 @@
+# atasOS tarifi: Python 3.13.18 (p5/v38'de 3.13.7; ayni 3.13 serisi = ayni ABI, libpython3.13.so.1.0). Kanala ILK kez giriyor.
+# p5'teki secenekler birebir: --enable-shared --with-system-expat --with-openssl=/usr (PGO/--enable-optimizations YOK).
+# - --with-ensurepip=no: pip pakete GIRMEZ. Sistemde pip 26.1.2, meson, setuptools, PyYAML, markupsafe, jinja2, mako,
+#   libxslt baglamalari site-packages'ta (ayri kurulmus); bu paket site-packages'a README.txt disinda hicbir sey koymaz.
+# - p5'te _sqlite3 modulu YOK (LFS'te python sqlite'tan once derleniyor); simdi sistem sqlite'i var -> _sqlite3 EKLENIR.
+# - eski lib-dynload'daki HER modul yenisinde de olmali (ssl, lzma, ctypes, readline, curses, dbm ...), yoksa DUR.
+name=python
+version=3.13.18
+release=1
+description="Python 3.13 yorumlayicisi ve standart kutuphane - guvenlik guncellemesi"
+depends=()
+# makedepends: atspkg okumaz; atasos-82 derlemeden once paketler/'deki en yeni dogrulanmis surumu gecici katmana kurar
+# (p5'te sqlite yok -> yoksa _sqlite3 derlenmezdi)
+makedepends=(sqlite)
+source=(Python-3.13.18.tar.xz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head -30; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+build() {
+    ./configure --prefix=/usr --enable-shared --with-system-expat --with-openssl=/usr --with-ensurepip=no
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    SP="$pkgdir/usr/lib/python3.13/site-packages"
+    fazla=$(find "$SP" -mindepth 1 -maxdepth 1 ! -name README.txt 2>/dev/null)
+    [ -z "$fazla" ] || { echo "site-packages'a beklenmedik dosya girdi (sistemdekini ezerdi):"; echo "$fazla"; exit 1; }
+    [ ! -e "$pkgdir/usr/bin/pip3" ] || { echo "pip pakete girdi"; exit 1; }
+    eksik=""
+    for f in /usr/lib/python3.13/lib-dynload/*.so; do
+        [ -f "$pkgdir$f" ] || eksik="$eksik ${f##*/}"
+    done
+    [ -z "$eksik" ] || { echo "yeni python'da su moduller yok (eskide vardi):$eksik"; exit 1; }
+    echo "lib-dynload: eski modullerin hepsi var ($(ls "$pkgdir"/usr/lib/python3.13/lib-dynload/*.so | wc -l) modul)"
+    [ -f "$pkgdir"/usr/lib/python3.13/lib-dynload/_sqlite3.cpython-313-x86_64-linux-gnu.so ] || { echo "_sqlite3 derlenmedi"; exit 1; }
+    abi_denetle /usr/lib libpython3.13.so.1.0
+    abi_denetle /usr/lib libpython3.so
+}

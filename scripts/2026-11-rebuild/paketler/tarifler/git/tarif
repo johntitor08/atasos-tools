@@ -1,0 +1,27 @@
+# atasOS tarifi: git 2.56.1 (p5/v38'de 2.50.1). Kanala ILK kez giriyor.
+# DIKKAT: p5'teki git curl'SUZ derlenmis (yalniz libc + libz; git-remote-http yok) -> atasOS'ta
+# 'git clone https://...' CALISMIYORDU. Bu paket curl + expat ile derlenir: https klonlama/cekme/itme calisir.
+# - sistem yapilandirmasi /etc/gitconfig (p5'te /usr/etc/gitconfig'di; ikisi de yok, FHS'e uygun olan secildi)
+# - Turkce ceviriler (git.mo), perl modulleri /usr/share/perl5, gitk/git-gui p5'teki gibi kurulur
+# - man sayfalari yok (asciidoc yok; p5'te de yoktu)
+name=git
+version=2.56.1
+release=1
+description="git surum denetim sistemi - guvenlik guncellemesi + https destegi (curl)"
+# depends bos: curl/expat temel sistemde hep var ama eski kurulumlarda atspkg'ye kayitli olmayabilir (kur reddederdi)
+depends=()
+source=(git-2.56.1.tar.xz)
+
+build() {
+    ./configure --prefix=/usr --with-gitconfig=/etc/gitconfig --with-curl --with-expat --with-python=python3
+    make -j"$(nproc)" NO_RUST=1
+    make DESTDIR="$pkgdir" NO_RUST=1 install
+    rm -rf "$pkgdir/etc"
+    for f in usr/bin/git usr/libexec/git-core/git-remote-https usr/libexec/git-core/git-http-push usr/share/locale/tr/LC_MESSAGES/git.mo usr/share/perl5/Git.pm; do
+        [ -e "$pkgdir/$f" ] || { echo "$f pakette yok"; exit 1; }
+    done
+    readelf -d "$pkgdir/usr/libexec/git-core/git-remote-http" | grep -q 'NEEDED.*libcurl' || { echo "git-remote-http curl'a bagli degil"; exit 1; }
+    strings "$pkgdir/usr/bin/git" | grep -qx '/etc/gitconfig' || { echo "sistem gitconfig yolu /etc/gitconfig degil"; exit 1; }
+    n=$(ls "$pkgdir/usr/libexec/git-core" | wc -l); echo "git-core: $n program (p5: 172)"
+    [ "$n" -ge 172 ] || { echo "git-core'da p5'ten az program var"; exit 1; }
+}

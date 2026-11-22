@@ -1,0 +1,33 @@
+# atasOS tarifi: FreeType 2.15.0 (p5/v38'de 2.13.3). Kanala ILK kez giriyor.
+# p5'teki derleme birebir: varsayilan ftoption.h (subpixel KAPALI, gxvalid/otvalid yok), yalniz zlib + bzip2.
+# png/harfbuzz/brotli ACIKCA kapali: sistemde var olduklari icin configure kendiliginden acardi; harfbuzz zaten
+# freetype'a bagli (dongu) ve NEEDED degismemeli. Ekrandaki her yazi buna bagli -> ABI denetimi + fontconfig denemesi.
+name=freetype
+version=2.15.0
+release=1
+description="FreeType yazi tipi motoru - guvenlik guncellemesi"
+depends=()
+source=(freetype-2.15.0.tar.xz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+build() {
+    ./configure --prefix=/usr --enable-freetype-config --disable-static \
+        --with-zlib=yes --with-bzip2=yes --without-png --without-harfbuzz --without-brotli
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    n=$(readelf -d "$pkgdir/usr/lib/libfreetype.so.6" | grep NEEDED | grep -oE '\[[^]]+\]' | sort | tr '\n' ' ')
+    echo "libfreetype NEEDED: $n"
+    [ "$n" = "[libbz2.so.1.0] [libc.so.6] [libz.so.1] " ] || { echo "NEEDED p5'tekinden farkli (yalniz libz + libbz2 + libc olmali)"; exit 1; }
+    [ -x "$pkgdir/usr/bin/freetype-config" ] || { echo "freetype-config yok"; exit 1; }
+    abi_denetle /usr/lib libfreetype.so.6
+}
