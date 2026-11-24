@@ -1,7 +1,7 @@
 # atasOS tarifi: "Sistemi Guncelle" (atasos-guncelle + menu + polkit + temel paket listesi).
 # v36'da bir kez elle: sudo atspkg guncelle && sudo atspkg kur atasos-guncelleme ; sonra menuden "Sistemi Guncelle".
 name=atasos-guncelleme
-version=1.8
+version=1.9
 release=1
 description="atasOS sistem guncelleyicisi (Sistemi Guncelle menusu + gunluk guncelleme bildirimi)"
 depends=(atspkg)

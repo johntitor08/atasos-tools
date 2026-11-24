@@ -1,0 +1,51 @@
+# atasOS tarifi: Linux cekirdegi 6.18.64-atas7 (6.18 LTS). Eski cekirdek 6.16.1-atas6 DESTEK DISI (EOL).
+# - yapilandirma: config-6.18.64-atas7 = atas6'nin yapilandirmasi + 'make olddefconfig' (6.18). Secenek secenek
+#   karsilastirildi: atas6'da acik olan her sey acik (yalniz 6.18'de adi degisen/kalkan dahili simgeler yok),
+#   y<->m farki YOK. Legacy iptables 6.17+'da NETFILTER_XTABLES_LEGACY arkasinda -> acildi (atas6 ile esit).
+# - initramfs YOK: acilis surucuSU her sey =y olmali (NVMe, ext4, simpledrm, fbcon ...) -> derlemede denetlenir.
+# - eski cekirdek (atas6) SILINMEZ: hicbir pakete ait degil, /boot'ta ve GRUB "Gelismis secenekler"de yedek kalir.
+# - kurulum kancasi: depmod + (sistemin kendi GRUB'u varsa) grub-mkconfig. Baska sistemin GRUB'u ile acilan
+#   kurulumlarda (or. Kubuntu yaninda p4) o sistemde menu guncellenmeli.
+name=linux
+version=6.18.64
+release=1
+description="Linux cekirdegi 6.18 LTS (atas7) - 6.16 destek disi; eski cekirdek yedek olarak kalir"
+depends=()
+# atasos-nouveau.conf + nouveau-yukle: nouveau yalniz VGA sinifi NVIDIA kartta yuklenir. p4 (Huawei, MX250 = 3D
+# denetleyici, Optimus) gercek donanim denemesinde nouveau acilista cokup (gp102_acr_wpr_patch, fb 0 MiB) aygit
+# kilidini tuttu -> yeniden baslatma sonsuza dek takildi. Kural modprobe.d'de: eski cekirdek (atas6) icin de gecerli.
+source=(linux-6.18.64.tar.xz config-6.18.64-atas7 atasos-nouveau.conf nouveau-yukle)
+
+build() {
+    KR=6.18.64-atas7
+    cd "$srcdir/linux-6.18.64" || exit 1
+    cp "$srcdir/config-6.18.64-atas7" .config
+    make olddefconfig > /dev/null
+    # olddefconfig secenekleri SESSIZCE degistirebilir: verilen yapilandirmayla birebir ayni olmali.
+    # Haric: derleyici yoklamalari (yapilandirma Kubuntu gcc'siyle, derleme atasOS gcc'siyle uretiliyor; ikisi de 15.2)
+    ARAC='^CONFIG_(CC_VERSION_TEXT|CC_IS_|CC_HAS_|CC_CAN_|GCC_|AS_|LD_|TOOLCHAIN_|RUSTC_|RUST_|PAHOLE_|CLANG_|LLD_)'
+    diff <(grep '^CONFIG_' "$srcdir/config-6.18.64-atas7" | grep -vE "$ARAC" | sort) <(grep '^CONFIG_' .config | grep -vE "$ARAC" | sort) \
+        || { echo "olddefconfig yapilandirmayi degistirdi (yukaridaki fark); derleme durduruldu"; exit 1; }
+    echo "derleyici: $(grep '^CONFIG_CC_VERSION_TEXT' .config)"
+    for o in PCI BLK_DEV_NVME NVME_CORE EXT4_FS DEVTMPFS DEVTMPFS_MOUNT EFI_STUB DRM DRM_SIMPLEDRM DRM_FBDEV_EMULATION \
+             FRAMEBUFFER_CONSOLE SYSFB_SIMPLEFB SQUASHFS OVERLAY_FS ISO9660_FS FUSE_FS SND_HDA_INTEL I2C_HID_ACPI \
+             USB_XHCI_HCD USB_STORAGE IKCONFIG_PROC; do
+        grep -q "^CONFIG_$o=y" .config || { echo "acilis icin sart $o =y degil"; exit 1; }
+    done
+    ! grep -q '^CONFIG_FRAMEBUFFER_CONSOLE_DEFERRED_TAKEOVER=y' .config || { echo "DEFERRED_TAKEOVER acik (atasOS'ta ekran kor kalir)"; exit 1; }
+    make -j"$(nproc)"
+    [ "$(make -s kernelrelease)" = "$KR" ] || { echo "kernelrelease $KR degil"; exit 1; }
+    install -Dm644 arch/x86/boot/bzImage "$pkgdir/boot/vmlinuz-$KR"
+    install -Dm644 System.map "$pkgdir/boot/System.map-$KR"
+    install -Dm644 .config "$pkgdir/boot/config-$KR"
+    install -Dm644 "$srcdir/atasos-nouveau.conf" "$pkgdir/usr/lib/modprobe.d/atasos-nouveau.conf"
+    install -Dm755 "$srcdir/nouveau-yukle" "$pkgdir/usr/lib/atasos/nouveau-yukle"
+    make -s modules_install INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1
+    rm -f "$pkgdir/usr/lib/modules/$KR/build" "$pkgdir/usr/lib/modules/$KR/source"
+    depmod -b "$pkgdir/usr" "$KR" || { echo "depmod basarisiz"; exit 1; }
+    n=$(find "$pkgdir/usr/lib/modules/$KR" -name '*.ko*' | wc -l); echo "moduller: $n (atas6: 182)"
+    [ "$n" -ge 182 ] || { echo "atas6'dan az modul var"; exit 1; }
+    for m in i915 amdgpu nouveau radeon iwlwifi mt7921e uas bochs vmwgfx; do
+        find "$pkgdir/usr/lib/modules/$KR" -name "$m.ko*" | grep -q . || { echo "modul yok: $m"; exit 1; }
+    done
+}

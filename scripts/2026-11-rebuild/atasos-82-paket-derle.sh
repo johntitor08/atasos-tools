@@ -20,7 +20,7 @@ KN=/veri/atasos-iso/kanal
 LOG=$P/derleme-$(date +%Y%m%d-%H%M).log
 PAKETLER=("$@"); [ ${#PAKETLER[@]} -gt 0 ] || PAKETLER=(openssl curl sudo)
 # bagimlilik sirasi: her paket derlenir derlenmez gecici katmana kurulur, sonrakiler ona karsi derlenir (nss -> nspr+sqlite)
-SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups python git libjpeg-turbo freetype atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
+SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups python git libjpeg-turbo freetype linux atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
 S2=(); for s in "${SIRA[@]}"; do for p in "${PAKETLER[@]}"; do [ "$p" = "$s" ] && S2+=("$p"); done; done
 for p in "${PAKETLER[@]}"; do [[ " ${SIRA[*]} " == *" $p "* ]] || S2+=("$p"); done
 PAKETLER=("${S2[@]}")
@@ -66,6 +66,8 @@ install -m 755 $KN/atspkg-0.3.0 $K/usr/bin/atspkg
 install -d $K/usr/share/atspkg; install -m 644 $KN/depo-anahtari.gpg $K/usr/share/atspkg/depo-anahtari.gpg
 rm -f $K/etc/resolv.conf; cat /etc/resolv.conf > $K/etc/resolv.conf
 mkdir -p $K/mnt/tarifler
+# isaret: kurulum kancalari bunu gorunce GRUB/os-prober gibi sistem disi islerden kacinir (linux kancasi)
+mkdir -p $K/run && : > $K/run/atasos-82-katman
 mount --bind /dev $K/dev; mount --bind /dev/pts $K/dev/pts; mount -t proc proc $K/proc; mount -t sysfs sysfs $K/sys
 mount -t tmpfs -o size=6G tmpfs $K/tmp
 mount --bind $P/tarifler $K/mnt/tarifler
@@ -141,6 +143,11 @@ for p in "${PAKETLER[@]}"; do
         # launch-helper pakette setuid'siz 0700; root:messagebus 4110'u kurulum kancasi verir (tar sahipleri 0:0 paketler)
         dbus) grep -qE '^-rwx------ .* (\./)?usr/libexec/dbus-daemon-launch-helper$' <<< "$L" && echo "  dbus: launch-helper pakette 0700 (setuid'i kanca verir)" || { echo "  dbus: launch-helper izni beklenmedik <<<"; grep launch-helper <<< "$L" | sed 's/^/      /'; H=1; }
               tar -xOf "$F" .INSTALL 2>/dev/null | grep -q 'chmod 4110' && echo "  dbus: kurulum kancasi var" || { echo "  dbus: .INSTALL kancasi YOK <<<"; H=1; } ;;
+        linux) KR=$(tar -tf "$F" | sed -n 's|^\(\./\)\{0,1\}boot/vmlinuz-||p' | head -1)
+               for y in boot/vmlinuz-$KR boot/config-$KR boot/System.map-$KR usr/lib/modules/$KR/modules.dep usr/lib/modules/$KR/modules.builtin; do
+                   grep -qE " (\./)?$y$" <<< "$L" || { echo "  linux: $y YOK <<<"; H=1; }; done
+               grep -qE " (\./)?usr/lib/modules/$KR/(build|source)( |$)" <<< "$L" && { echo "  linux: build/source baglantisi pakette <<<"; H=1; }
+               tar -xOf "$F" .INSTALL 2>/dev/null | grep -q 'grub-mkconfig' && echo "  linux: $KR, kanca (depmod + grub-mkconfig) var" || { echo "  linux: kanca YOK <<<"; H=1; } ;;
     esac
 done
 [ $H -eq 0 ] || { echo "  DURDU: paket denetimi basarisiz."; exit 1; }
@@ -195,6 +202,16 @@ print("ok", ssl.OPENSSL_VERSION.split()[1], "sqlite", sqlite3.sqlite_version)' 2
 f = ctypes.CDLL("libfreetype.so.6"); lib = ctypes.c_void_p(); f.FT_Init_FreeType(ctypes.byref(lib))
 a, b, c = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(); f.FT_Library_Version(lib, ctypes.byref(a), ctypes.byref(b), ctypes.byref(c)); print("%d.%d.%d" % (a.value, b.value, c.value))' 2>&1); echo "  libfreetype calisma ani surumu: $c"; [ "$c" = 2.15.0 ] || H=1
                  c=$(cr sh -c 'f=$(find /usr/share/fonts -name "*.ttf" -o -name "*.otf" | head -1); fc-scan --format "%{family}\n" "$f" | head -1' 2>&1); echo "  fontconfig fc-scan (freetype ile yazi tipi ayristirma): $c"; [ -n "$c" ] || H=1 ;;
+        linux)   KR=6.18.64-atas7
+                 c=$(cr sh -c "dd if=/boot/vmlinuz-$KR bs=1 skip=514 count=4 2>/dev/null; echo; strings /boot/vmlinuz-$KR | grep -m1 -o '^$KR'" 2>&1 | tr '\n' ' '); echo "  vmlinuz: $c"; [ "$c" = "HdrS $KR " ] || H=1
+                 c=$(cr modinfo -k $KR -F vermagic i915 2>&1); echo "  i915 vermagic: $c"; grep -q "^$KR " <<< "$c" || H=1
+                 c=$(cr modprobe -S $KR --show-depends amdgpu 2>&1 | grep -c '^insmod'); echo "  amdgpu bagimlilik zinciri (modules.dep): $c modul"; [ "${c:-0}" -ge 2 ] || H=1
+                 c=$(cr sh -c "grep -cE '^CONFIG_(BLK_DEV_NVME|EXT4_FS|DRM_SIMPLEDRM|FRAMEBUFFER_CONSOLE|DEVTMPFS_MOUNT|EFI_STUB)=y' /boot/config-$KR"); echo "  acilis suruculeri gomulu (6/6): $c"; [ "$c" = 6 ] || H=1
+                 [ -e $K/boot/vmlinuz-6.16.1-atas6 ] && echo "  eski cekirdek atas6 yerinde (yedek)" || { echo "  atas6 kayboldu <<<"; H=1; }
+                 # nouveau kurali: modprobe 'install' ile yonlendiriyor mu + karar mantigi (sahte sysfs; modprobe CAGRILMAZ)
+                 c=$(cr modprobe -c 2>/dev/null | grep -c '^install nouveau /usr/lib/atasos/nouveau-yukle'); echo "  modprobe yapilandirmasi: install nouveau kurali $c"; [ "$c" = 1 ] || H=1
+                 c=$(cr sh -c 'T=$(mktemp -d); m(){ mkdir -p $T/$1/bus/pci/devices/x; echo $2 > $T/$1/bus/pci/devices/x/vendor; echo $3 > $T/$1/bus/pci/devices/x/class; }; m h 0x10de 0x030200; m v 0x10de 0x030000; for s in h v; do ATASOS_SYSFS=$T/$s ATASOS_DENEME=1 /usr/lib/atasos/nouveau-yukle; done | tr "\n" " "; rm -rf $T'); echo "  nouveau karari (hibrit 3D denetleyici / VGA NVIDIA): $c"; [ "$c" = "atla yukle " ] || H=1
+                 grep -q 'GRUB atlandi' /veri/atasos-paket/tarifler/linux/kurulum.log && echo "  kanca: derleme katmaninda GRUB'a dokunmadi" || { echo "  kanca GRUB'a dokunmus olabilir <<<"; H=1; } ;;
         nspr)    v=$(cr nspr-config --version 2>&1); echo "  nspr: $v"; case "$v" in 4.41|4.41.0) ;; *) H=1;; esac ;;
         sqlite)  v=$(cr sqlite3 --version 2>&1 | cut -d' ' -f1); echo "  sqlite3: $v"; [ "$v" = 3.54.1 ] || H=1
                  c=$(cr sqlite3 :memory: "create virtual table t using fts5(x); insert into t values('atasos'); select x from t where t match 'atasos';" 2>&1)
@@ -232,7 +249,7 @@ a, b, c = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(); f.FT_Library_Version(l
                  cr glib-compile-schemas --strict --dry-run /usr/share/glib-2.0/schemas >/dev/null 2>&1 && echo "  glib-compile-schemas: semalar gecerli" || { echo "  glib-compile-schemas HATA <<<"; H=1; } ;;
         atasos-guncelleme) cr bash -n /usr/bin/atasos-guncelle && cr bash -n /usr/bin/atasos-guncelleme-denetle && [ -s $K/etc/xdg/autostart/atasos-guncelleme-denetle.desktop ] \
                      && echo "  guncelleyici + gunluk denetleyici: sozdizimi tamam, autostart var" || { echo "  guncelleyici/denetleyici sorunlu <<<"; H=1; }
-                 for t in xz dbus nspr sqlite nss libcups python git libjpeg-turbo freetype; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
+                 for t in xz dbus nspr sqlite nss libcups python git libjpeg-turbo freetype linux; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
                  [ "$(grep -nx nspr $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" -lt "$(grep -nx nss $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" ] \
                      && echo "  temel.list: 6. parti var (nspr/sqlite nss'ten once)" || { echo "  temel.list: sira yanlis <<<"; H=1; } ;;
         fastfetch) v=$(cr fastfetch --version 2>&1 | head -1); echo "  fastfetch: $v"; grep -q "2\.71\.0" <<< "$v" || H=1

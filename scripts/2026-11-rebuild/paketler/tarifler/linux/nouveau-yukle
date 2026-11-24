@@ -1,0 +1,17 @@
+#!/bin/sh
+# atasOS: modprobe 'install nouveau' kurali bunu calistirir (/usr/lib/modprobe.d/atasos-nouveau.conf).
+# Yalniz VGA sinifinda (0x0300xx) bir NVIDIA karti varsa nouveau'yu gercekten yukler; yalniz 3D denetleyici
+# (0x0302xx, hibrit dizustu) varsa yuklemeden basariyla cikar.
+# Deneme icin: ATASOS_SYSFS=<sahte sysfs koku> ATASOS_DENEME=1 nouveau-yukle  -> karari yazar, yuklemez.
+S=${ATASOS_SYSFS:-/sys}
+for d in "$S"/bus/pci/devices/*; do
+    [ -r "$d/vendor" ] && [ -r "$d/class" ] || continue
+    [ "$(cat "$d/vendor")" = 0x10de ] || continue
+    case "$(cat "$d/class")" in
+        0x0300*)
+            [ -n "${ATASOS_DENEME:-}" ] && { echo "yukle"; exit 0; }
+            exec /usr/sbin/modprobe --ignore-install nouveau "$@" ;;
+    esac
+done
+[ -n "${ATASOS_DENEME:-}" ] && echo "atla"
+exit 0

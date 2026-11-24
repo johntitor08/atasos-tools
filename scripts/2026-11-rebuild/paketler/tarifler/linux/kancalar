@@ -1,0 +1,24 @@
+# linux kurulum kancasi: modul dizini + GRUB menusu. Eski cekirdeklere dokunulmaz (yedek olarak menude kalir).
+kurulum_sonrasi() {
+    KR="$1-atas7"
+    depmod -a "$KR" 2>/dev/null
+    # atasos-82 gecici derleme katmani: GRUB'a dokunma (os-prober diskleri tarardi)
+    [ -e /run/atasos-82-katman ] && { echo "derleme katmani: GRUB atlandi"; return 0; }
+    # canli ortam: kurulu bir sistem yok
+    if [ -x /usr/bin/calamares ] && [ -e /usr/share/applications/calamares.desktop ]; then echo "canli ortam: GRUB atlandi"; return 0; fi
+    if [ -s /boot/grub/grub.cfg ] && command -v grub-mkconfig >/dev/null && grep -q '10_linux' /boot/grub/grub.cfg; then
+        cp -f /boot/grub/grub.cfg /boot/grub/grub.cfg.atas7-oncesi
+        # LC_ALL=C SART: GRUB'un Turkce cevirisinde bozuk bir printf bicimi var ("printf: `$': bicim karakteri
+        # gecersiz", grub-mkconfig_lib 317) -> Turkce yerel ayarla grub-mkconfig yarida kalir. Calamares de C ile uretir.
+        if LC_ALL=C LANG=C grub-mkconfig -o /boot/grub/grub.cfg; then
+            grep -q "vmlinuz-$KR" /boot/grub/grub.cfg && echo "GRUB: yeni cekirdek $KR varsayilan; eskiler 'Gelismis secenekler' altinda" \
+                || echo "UYARI: grub.cfg'de $KR yok"
+        else
+            cp -f /boot/grub/grub.cfg.atas7-oncesi /boot/grub/grub.cfg; echo "UYARI: grub-mkconfig basarisiz, eski menu geri kondu"
+        fi
+    else
+        echo "Bu sistemin kendi GRUB menusu yok (baska bir sistemin GRUB'u ile aciliyor)."
+        echo "Yeni cekirdek /boot/vmlinuz-$KR: o sistemde menuyu guncelleyin (or. Ubuntu'da: sudo update-grub)."
+    fi
+    true
+}

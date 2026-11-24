@@ -5,7 +5,7 @@
 33f0c26325ac16e541e56e2f028e5f827b919a7fa73628faca54d7e62b9c8367  atasos-guncelle  # atasOS'un kendi dosyasi (Claude yazdi)
 9c573c46d545decd60e746d95e438ab4f283f383418b05ff5a0f40bf79ee28ce  atasos-guncelle.desktop  # atasOS'un kendi dosyasi (Claude yazdi)
 fb886a01118f23e98a36f57dbcefb1b9d4ebec891bf07d8890cfec65f232559d  org.atasos.guncelle.policy  # atasOS'un kendi dosyasi (Claude yazdi)
-1701b01cd55eedef8555155250fddaf023e9f9e0e3f2bd23831c8697b6b53d39  temel.list  # atasOS'un kendi dosyasi (Claude yazdi; 1.1: expat, zlib; 1.2: fastfetch; 1.3: atasos-masaustu; 1.4: libxml2, libpng, libarchive; 1.5: libxslt, libtasn1, gnutls, glib; 1.7: xz, dbus, nspr, sqlite, nss, libcups; 1.8: python, git, libjpeg-turbo, freetype)
+298fff4cc5a59d495e6b333e486b2746073a258944efa46b72e1fb926c90ceb8  temel.list  # atasOS'un kendi dosyasi (Claude yazdi; 1.1: expat, zlib; 1.2: fastfetch; 1.3: atasos-masaustu; 1.4: libxml2, libpng, libarchive; 1.5: libxslt, libtasn1, gnutls, glib; 1.7: xz, dbus, nspr, sqlite, nss, libcups; 1.8: python, git, libjpeg-turbo, freetype; 1.9: linux)
 c624ba2998fc65df1163a49641ff3f9ab73138b11641d92c86bee0fb01b1bc7f  expat-2.10.0.tar.xz  # imza: Sebastian Pipping 3176EF7DB2367F1FCA4F306B1F9B0E909AF37285
 d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3  zlib-1.3.2.tar.xz  # imza: Mark Adler 5ED46A6721D365587791E2AA783FCD8E58BCAFBA
 # 2026-11-18 (v37 masaustu/portal): kaynaklar atasOS'ta (p4) indirilmisti; asagidaki bagimsiz kaynaklarla dogrulandi.
@@ -57,3 +57,8 @@ abb0102e6d4ae027509bcb82327d9dd85515b44a3ba8ad538cfc5e9847029f68  Python-3.13.18
 f0b0bf89264b9bd2e1c640363e7529643989da76281600473c50745cd34a607f  git-2.56.1.tar.xz  # imza (.tar): Junio C Hamano 96E07AF25771955980DAD10020D04E5A713660A7 + kernel.org sha256sums.asc ayni + Alpine sha512 ayni
 c27ad72a68da151177929aa969ae773a2da5ac2af9ce946079314fdac8cece7f  libjpeg-turbo-3.2.1.tar.gz  # imza: The libjpeg-turbo Project 0338C8D8D9FDA62CF9C421BD7EC2DBB6F4DBF434
 93cd47eb719c325107f2d3cf087d06299e944c3b48a40b55537302304dea1dd5  freetype-2.15.0.tar.xz  # imza: Werner Lemberg E30674707856409FF1948010BE6C3AAC63AD8E3F (FreeType)
+# 2026-11-22 (8. parti: cekirdek 6.18 LTS)
+020d45510c539972e6f14c5c71566878d3b7ef56fb082b3e09134f2ebaade562  linux-6.18.64.tar.xz  # imza (.tar): Greg Kroah-Hartman 647F28654894E3BD457199BE38DBBDC86092693E (stable) + kernel.org sha256sums.asc ayni
+95fb9ac3fcde23902632dcd3193b96c1d59bbdf7db791a49ddedc1037ecbff8b  config-6.18.64-atas7  # atasOS'un kendi dosyasi (Claude: atas6 yapilandirmasi + olddefconfig 6.18 + NETFILTER_XTABLES_LEGACY ve IP_NF_* =y atas6 ile esitlik icin; secenek secenek karsilastirildi)
+24da34c663b6677fc0217fbc71be8570244ca06adb7027d999b0c54ae38ea1ea  atasos-nouveau.conf  # atasOS'un kendi dosyasi (Claude; hibrit dizustude nouveau cokmesi + yeniden baslatmada takilma onlemi, p4 gunlugunde bulundu)
+4f6bf1af33db8ed9dd49a45a59a93ca63b9d966b3a137461877f8efd52ecb500  nouveau-yukle  # atasOS'un kendi dosyasi (Claude; hibrit dizustude nouveau cokmesi + yeniden baslatmada takilma onlemi, p4 gunlugunde bulundu)
