@@ -20,7 +20,7 @@ KN=/veri/atasos-iso/kanal
 LOG=$P/derleme-$(date +%Y%m%d-%H%M).log
 PAKETLER=("$@"); [ ${#PAKETLER[@]} -gt 0 ] || PAKETLER=(openssl curl sudo)
 # bagimlilik sirasi: her paket derlenir derlenmez gecici katmana kurulur, sonrakiler ona karsi derlenir (nss -> nspr+sqlite)
-SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups python git libjpeg-turbo freetype linux atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
+SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups python git libjpeg-turbo freetype pipewire polkit linux atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
 S2=(); for s in "${SIRA[@]}"; do for p in "${PAKETLER[@]}"; do [ "$p" = "$s" ] && S2+=("$p"); done; done
 for p in "${PAKETLER[@]}"; do [[ " ${SIRA[*]} " == *" $p "* ]] || S2+=("$p"); done
 PAKETLER=("${S2[@]}")
@@ -143,6 +143,9 @@ for p in "${PAKETLER[@]}"; do
         # launch-helper pakette setuid'siz 0700; root:messagebus 4110'u kurulum kancasi verir (tar sahipleri 0:0 paketler)
         dbus) grep -qE '^-rwx------ .* (\./)?usr/libexec/dbus-daemon-launch-helper$' <<< "$L" && echo "  dbus: launch-helper pakette 0700 (setuid'i kanca verir)" || { echo "  dbus: launch-helper izni beklenmedik <<<"; grep launch-helper <<< "$L" | sed 's/^/      /'; H=1; }
               tar -xOf "$F" .INSTALL 2>/dev/null | grep -q 'chmod 4110' && echo "  dbus: kurulum kancasi var" || { echo "  dbus: .INSTALL kancasi YOK <<<"; H=1; } ;;
+        polkit) for y in usr/bin/pkexec usr/lib/polkit-1/polkit-agent-helper-1; do
+                    grep -qE "^-rwsr-xr-x .* (\./)?$y$" <<< "$L" && echo "  polkit: $y setuid root" || { echo "  polkit: $y setuid DEGIL <<<"; H=1; }; done
+                grep -qE " (\./)?etc/" <<< "$L" && { echo "  polkit: /etc pakette (atasOS kurallari ezilirdi) <<<"; H=1; } || echo "  polkit: /etc pakette yok (atasOS kurallari korunur)" ;;
         linux) KR=$(tar -tf "$F" | sed -n 's|^\(\./\)\{0,1\}boot/vmlinuz-||p' | head -1)
                for y in boot/vmlinuz-$KR boot/config-$KR boot/System.map-$KR usr/lib/modules/$KR/modules.dep usr/lib/modules/$KR/modules.builtin; do
                    grep -qE " (\./)?$y$" <<< "$L" || { echo "  linux: $y YOK <<<"; H=1; }; done
@@ -202,7 +205,18 @@ print("ok", ssl.OPENSSL_VERSION.split()[1], "sqlite", sqlite3.sqlite_version)' 2
 f = ctypes.CDLL("libfreetype.so.6"); lib = ctypes.c_void_p(); f.FT_Init_FreeType(ctypes.byref(lib))
 a, b, c = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(); f.FT_Library_Version(lib, ctypes.byref(a), ctypes.byref(b), ctypes.byref(c)); print("%d.%d.%d" % (a.value, b.value, c.value))' 2>&1); echo "  libfreetype calisma ani surumu: $c"; [ "$c" = 2.15.0 ] || H=1
                  c=$(cr sh -c 'f=$(find /usr/share/fonts -name "*.ttf" -o -name "*.otf" | head -1); fc-scan --format "%{family}\n" "$f" | head -1' 2>&1); echo "  fontconfig fc-scan (freetype ile yazi tipi ayristirma): $c"; [ -n "$c" ] || H=1 ;;
-        linux)   KR=6.18.64-atas7
+        pipewire) v=$(cr pipewire --version 2>&1 | grep -o 'libpipewire [0-9.]*' | sort -u); echo "  pipewire (derlenen + baglanan): $v"; [ "$v" = "libpipewire 1.2.8" ] || H=1
+                 # videotestsrc + audiomixer: spa-inspect veri dongusu/sistem arayuzu vermedigi icin impl_init hata yolunda
+                 # cokuyor (1.2.7'de de, Kubuntu'nun 1.6.2'sinde de ayni; pipewire sunucusunda bu yol yok) -> haric
+                 c=$(cr sh -c 'n=0; for f in $(find /usr/lib64/spa-0.2 -name "*.so" ! -name libspa-videotestsrc.so ! -name libspa-audiomixer.so); do spa-inspect "$f" >/dev/null 2>&1 || { echo "BOZUK $f"; n=1; }; done; [ $n = 0 ] && echo ok' 2>&1); echo "  spa-inspect (SPA eklentileri yukleniyor; videotestsrc/audiomixer haric): $c"; [ "$c" = ok ] || H=1
+                 c=$(cr sh -c 'pw-cli --version >/dev/null && pw-cat --help >/dev/null && echo ok' 2>&1); echo "  pw-cli/pw-cat: $c"; [ "$c" = ok ] || H=1
+                 for f in /etc/security/limits.d/25-pw-rlimits.conf /usr/lib/systemd/user/pipewire.socket /usr/lib/systemd/user/pipewire-pulse.socket; do [ -e $K$f ] || { echo "  $f YOK <<<"; H=1; }; done ;;
+        polkit)  v=$(cr pkaction --version 2>&1); echo "  polkit: $v"; grep -q "128" <<< "$v" || H=1
+                 c=$(cr stat -c '%a %U' /usr/bin/pkexec /usr/lib/polkit-1/polkit-agent-helper-1 | tr '\n' ' '); echo "  setuid (kurulum sonrasi): $c"; [ "$c" = "4755 root 4755 root " ] || H=1
+                 c=$(ls $K/etc/polkit-1/rules.d/ | tr '\n' ' '); echo "  /etc/polkit-1/rules.d (atasOS kurallari): $c"; grep -q 49-atasos-guc <<< "$c" || H=1
+                 c=$(cr /usr/lib/polkit-1/polkitd --help 2>&1 | grep -c -- '--replace'); echo "  polkitd calisiyor (--help): $c"; [ "$c" -ge 1 ] || H=1
+                 [ -s $K/etc/pam.d/polkit-1 ] && [ -s $K/usr/lib/pam.d/polkit-1 ] && echo "  PAM: /etc/pam.d/polkit-1 (atasOS) + /usr/lib/pam.d/polkit-1 var" || { echo "  PAM dosyasi eksik <<<"; H=1; } ;;
+        linux)   KR=$(ls $K/boot/vmlinuz-*-atas7 2>/dev/null | sed "s|.*/vmlinuz-||" | sort -V | tail -1); echo "  cekirdek: $KR"
                  c=$(cr sh -c "dd if=/boot/vmlinuz-$KR bs=1 skip=514 count=4 2>/dev/null; echo; strings /boot/vmlinuz-$KR | grep -m1 -o '^$KR'" 2>&1 | tr '\n' ' '); echo "  vmlinuz: $c"; [ "$c" = "HdrS $KR " ] || H=1
                  c=$(cr modinfo -k $KR -F vermagic i915 2>&1); echo "  i915 vermagic: $c"; grep -q "^$KR " <<< "$c" || H=1
                  c=$(cr modprobe -S $KR --show-depends amdgpu 2>&1 | grep -c '^insmod'); echo "  amdgpu bagimlilik zinciri (modules.dep): $c modul"; [ "${c:-0}" -ge 2 ] || H=1
@@ -249,7 +263,7 @@ a, b, c = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(); f.FT_Library_Version(l
                  cr glib-compile-schemas --strict --dry-run /usr/share/glib-2.0/schemas >/dev/null 2>&1 && echo "  glib-compile-schemas: semalar gecerli" || { echo "  glib-compile-schemas HATA <<<"; H=1; } ;;
         atasos-guncelleme) cr bash -n /usr/bin/atasos-guncelle && cr bash -n /usr/bin/atasos-guncelleme-denetle && [ -s $K/etc/xdg/autostart/atasos-guncelleme-denetle.desktop ] \
                      && echo "  guncelleyici + gunluk denetleyici: sozdizimi tamam, autostart var" || { echo "  guncelleyici/denetleyici sorunlu <<<"; H=1; }
-                 for t in xz dbus nspr sqlite nss libcups python git libjpeg-turbo freetype linux; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
+                 for t in xz dbus nspr sqlite nss libcups python git libjpeg-turbo freetype linux pipewire polkit; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
                  [ "$(grep -nx nspr $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" -lt "$(grep -nx nss $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" ] \
                      && echo "  temel.list: 6. parti var (nspr/sqlite nss'ten once)" || { echo "  temel.list: sira yanlis <<<"; H=1; } ;;
         fastfetch) v=$(cr fastfetch --version 2>&1 | head -1); echo "  fastfetch: $v"; grep -q "2\.71\.0" <<< "$v" || H=1
@@ -258,7 +272,7 @@ a, b, c = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(); f.FT_Library_Version(l
                      [ -e $K$f ] && echo "  portal-kde: $f var" || { echo "  portal-kde: $f YOK <<<"; H=1; }; done ;;
     esac
 done
-ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell /usr/bin/xz /usr/lib/liblzma.so.5 /usr/bin/kmod /usr/lib/systemd/systemd /usr/bin/dbus-daemon /usr/lib/libdbus-1.so.3 /usr/libexec/dbus-daemon-launch-helper /usr/bin/NetworkManager /usr/bin/python3.13 /usr/lib/libpython3.13.so.1.0 /usr/bin/git /usr/libexec/git-core/git-remote-https /usr/lib/libjpeg.so.62 /usr/lib/libturbojpeg.so.0 /usr/lib/libfreetype.so.6 /usr/bin/fc-list /usr/lib/libharfbuzz.so.0 /usr/lib/python3.13/site-packages/libxsltmod.so /usr/lib/python3.13/site-packages/yaml/_yaml.cpython-313-x86_64-linux-gnu.so; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
+ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell /usr/bin/xz /usr/lib/liblzma.so.5 /usr/bin/kmod /usr/lib/systemd/systemd /usr/bin/dbus-daemon /usr/lib/libdbus-1.so.3 /usr/libexec/dbus-daemon-launch-helper /usr/bin/NetworkManager /usr/bin/python3.13 /usr/lib/libpython3.13.so.1.0 /usr/bin/git /usr/libexec/git-core/git-remote-https /usr/lib/libjpeg.so.62 /usr/lib/libturbojpeg.so.0 /usr/lib/libfreetype.so.6 /usr/bin/fc-list /usr/lib/libharfbuzz.so.0 /usr/lib/python3.13/site-packages/libxsltmod.so /usr/lib/python3.13/site-packages/yaml/_yaml.cpython-313-x86_64-linux-gnu.so /usr/bin/pipewire /usr/lib64/libpipewire-0.3.so.0 /usr/lib/polkit-1/polkitd /usr/bin/pkexec /usr/lib64/libpolkit-gobject-1.so.0; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
 [ -z "$ek" ] && echo "  eksik kutuphane yok" || { echo "  EKSIK KUTUPHANE <<<"; echo "$ek" | sed 's/^/    /'; H=1; }
 cr atspkg listele 2>&1 | sed 's/^/  kurulu: /'
 [ $H -eq 0 ] || { echo "  DURDU: duman testi basarisiz; paketler yayinlanmamali."; exit 1; }

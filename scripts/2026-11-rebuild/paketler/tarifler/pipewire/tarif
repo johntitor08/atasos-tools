@@ -1,0 +1,60 @@
+# atasOS tarifi: PipeWire 1.2.8 (p5/v38'de 1.2.7; ayni 1.2 serisi = ayni ABI). Kanala ILK kez giriyor.
+# p5'teki derleme birebir: /usr/lib64, alsa + jack + v4l2 uyumlulugu, pulse protokolu, raop/rtp/avb, x11-bell
+# (libcanberra), sndfile; bluez5/libcamera/avahi/webrtc/ffmpeg/gstreamer YOK.
+# DIKKAT: 1.2.7 p5'e opus/readline/libusb/libpulse KURULMADAN once derlenmis; "auto" birakilirsa yeni derleme
+# onlari bulup yeni ozellik/bagimlilik eklerdi -> esitlik icin ACIKCA kapali. Oturum yoneticisi (wireplumber)
+# ayri paket; burada derlenmez (session-managers=[]). /etc pakete GIRMEZ (limits.d zaten var).
+# Denetim: eski kurulumdaki her modul/eklenti/program yenisinde olmali; yeni NEEDED kutuphane eklenmemeli.
+name=pipewire
+version=1.2.8
+release=1
+description="PipeWire ses/goruntu sunucusu - hata ve guvenlik duzeltmeleri (1.2 serisi)"
+depends=()
+source=(pipewire-1.2.8.tar.gz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+liste() { # $1 = kok: pipewire'in kurdugu calistirilabilir/eklenti dosyalari (goreli yol)
+    ( cd "$1" 2>/dev/null || exit 0
+      # jack: surum adli dosya (libjack.so.0.3.1207 -> .1208) her surumde degisir; surumsuz adlar karsilastirilir
+      ls usr/lib64/pipewire-0.3/*.so usr/lib64/pipewire-0.3/jack/*.so usr/lib64/pipewire-0.3/jack/*.so.0 \
+         usr/lib64/pipewire-0.3/v4l2/*.so \
+         usr/lib64/alsa-lib/libasound_module_*pipewire*.so 2>/dev/null
+      find usr/lib64/spa-0.2 -name '*.so' 2>/dev/null
+      for b in usr/bin/pipewire* usr/bin/pw-* usr/bin/spa-*; do [ -e "$b" ] && echo "$b"; done ) | sort -u
+}
+
+gerekenler() { # $1 = kok
+    for f in $(liste "$1"); do readelf -d "$1/$f" 2>/dev/null | grep NEEDED | grep -oE '\[[^]]+\]' | tr -d '[]'; done | sort -u
+}
+
+build() {
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    meson setup build --prefix=/usr --buildtype=release --wrap-mode=nofallback \
+        -Dsession-managers=[] -Ddocs=disabled -Dman=disabled -Dtests=disabled -Dexamples=disabled -Dinstalled_tests=disabled \
+        -Dbluez5=disabled -Dgstreamer=disabled -Dgstreamer-device-provider=disabled -Dlibcamera=disabled -Dvulkan=disabled \
+        -Davahi=disabled -Droc=disabled -Dffmpeg=disabled -Dpw-cat-ffmpeg=disabled -Decho-cancel-webrtc=disabled \
+        -Dopus=disabled -Dreadline=disabled -Dlibusb=disabled -Dlibpulse=disabled -Dsdl2=disabled -Dlv2=disabled \
+        -Dlibmysofa=disabled -Dlibffado=disabled -Dsnap=disabled -Dselinux=disabled -Dgsettings=disabled \
+        -Dgsettings-pulse-schema=disabled -Dcompress-offload=disabled \
+        -Dpipewire-alsa=enabled -Dpipewire-jack=enabled -Dpipewire-v4l2=enabled -Dalsa=enabled -Dsystemd=enabled \
+        -Dudev=enabled -Ddbus=enabled -Dsndfile=enabled -Dx11=enabled -Dlibcanberra=enabled -Draop=enabled -Davb=enabled
+    ninja -C build
+    DESTDIR="$pkgdir" meson install -C build
+    rm -rf "$pkgdir/etc"
+    eksik=$(comm -23 <(liste /) <(liste "$pkgdir"))
+    [ -z "$eksik" ] || { echo "eski pipewire'da olup yenisinde OLMAYANLAR:"; echo "$eksik"; exit 1; }
+    echo "moduller/eklentiler/programlar: eskisinin hepsi var ($(liste "$pkgdir" | wc -l) dosya)"
+    yeni=$(comm -13 <(gerekenler /) <(gerekenler "$pkgdir") | grep -vE '^lib(pipewire|spa)-|^libpipewire-module-')
+    [ -z "$yeni" ] || { echo "yeni NEEDED kutuphaneler (p5'teki 1.2.7'de yoktu):"; echo "$yeni"; exit 1; }
+    abi_denetle /usr/lib64 libpipewire-0.3.so.0
+}

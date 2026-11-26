@@ -25,3 +25,5 @@ git
 libjpeg-turbo
 freetype
 linux
+pipewire
+polkit

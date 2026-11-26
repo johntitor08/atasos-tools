@@ -5,7 +5,7 @@
 33f0c26325ac16e541e56e2f028e5f827b919a7fa73628faca54d7e62b9c8367  atasos-guncelle  # atasOS'un kendi dosyasi (Claude yazdi)
 9c573c46d545decd60e746d95e438ab4f283f383418b05ff5a0f40bf79ee28ce  atasos-guncelle.desktop  # atasOS'un kendi dosyasi (Claude yazdi)
 fb886a01118f23e98a36f57dbcefb1b9d4ebec891bf07d8890cfec65f232559d  org.atasos.guncelle.policy  # atasOS'un kendi dosyasi (Claude yazdi)
-298fff4cc5a59d495e6b333e486b2746073a258944efa46b72e1fb926c90ceb8  temel.list  # atasOS'un kendi dosyasi (Claude yazdi; 1.1: expat, zlib; 1.2: fastfetch; 1.3: atasos-masaustu; 1.4: libxml2, libpng, libarchive; 1.5: libxslt, libtasn1, gnutls, glib; 1.7: xz, dbus, nspr, sqlite, nss, libcups; 1.8: python, git, libjpeg-turbo, freetype; 1.9: linux)
+26d55d5351f2f5c07f15cacaad5e3efbe1a7df1f402a50d0fb65abecc80b8b21  temel.list  # atasOS'un kendi dosyasi (Claude yazdi; 1.1: expat, zlib; 1.2: fastfetch; 1.3: atasos-masaustu; 1.4: libxml2, libpng, libarchive; 1.5: libxslt, libtasn1, gnutls, glib; 1.7: xz, dbus, nspr, sqlite, nss, libcups; 1.8: python, git, libjpeg-turbo, freetype; 1.9: linux; 1.10: pipewire, polkit)
 c624ba2998fc65df1163a49641ff3f9ab73138b11641d92c86bee0fb01b1bc7f  expat-2.10.0.tar.xz  # imza: Sebastian Pipping 3176EF7DB2367F1FCA4F306B1F9B0E909AF37285
 d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3  zlib-1.3.2.tar.xz  # imza: Mark Adler 5ED46A6721D365587791E2AA783FCD8E58BCAFBA
 # 2026-11-18 (v37 masaustu/portal): kaynaklar atasOS'ta (p4) indirilmisti; asagidaki bagimsiz kaynaklarla dogrulandi.
@@ -62,3 +62,7 @@ c27ad72a68da151177929aa969ae773a2da5ac2af9ce946079314fdac8cece7f  libjpeg-turbo-
 95fb9ac3fcde23902632dcd3193b96c1d59bbdf7db791a49ddedc1037ecbff8b  config-6.18.64-atas7  # atasOS'un kendi dosyasi (Claude: atas6 yapilandirmasi + olddefconfig 6.18 + NETFILTER_XTABLES_LEGACY ve IP_NF_* =y atas6 ile esitlik icin; secenek secenek karsilastirildi)
 24da34c663b6677fc0217fbc71be8570244ca06adb7027d999b0c54ae38ea1ea  atasos-nouveau.conf  # atasOS'un kendi dosyasi (Claude; hibrit dizustude nouveau cokmesi + yeniden baslatmada takilma onlemi, p4 gunlugunde bulundu)
 4f6bf1af33db8ed9dd49a45a59a93ca63b9d966b3a137461877f8efd52ecb500  nouveau-yukle  # atasOS'un kendi dosyasi (Claude; hibrit dizustude nouveau cokmesi + yeniden baslatmada takilma onlemi, p4 gunlugunde bulundu)
+# 2026-11-24 (9. parti: cekirdek 6.18.65, pipewire 1.2.8, polkit 128)
+e2e3f71c6931b4fb7375c8fd42b5e8b140345a46ba2c27af93cf8b8481cc4524  patch-6.18.64-65.xz  # kernel.org incr/sha256sums.asc ayni; imza: Kernel.org checksum autosigner B8868C80BA62A1FFFAF5FDA9632D3A06589DA6B1
+5c23a566605cbd85b5dfe3764798a35e6927ac99a81431d856004a0d3e6d0ed5  pipewire-1.2.8.tar.gz  # GitLab etiketi 1.2.8 arsivi; Fedora f41 sources sha512 ayni (upstream imza yayinlamiyor)
+6edb06bf1448e49e428f9597a97af6a05d62146dd0b58f86eeaebcee3f5ecfaa  polkit-128.tar.gz  # GitHub etiketi 128 arsivi; Alpine aports master sha512 ayni (upstream imza yayinlamiyor)

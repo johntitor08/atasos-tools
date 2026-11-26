@@ -27,7 +27,8 @@ while read -r h f; do
     [ $# -eq 0 ] || [[ "$SECILEN" == *" $f "* ]] || continue
     pk=$(tar -xOf "$P/$f" .PKGINFO 2>/dev/null) || { echo "HATA: $f okunamadi"; exit 1; }
     ad=$(awk -F' = ' '$1=="name"{print $2}' <<< "$pk"); sr=$(awk -F' = ' '$1=="version"{print $2}' <<< "$pk"); yy=$(awk -F' = ' '$1=="release"{print $2}' <<< "$pk")
-    awk -v a="$ad" -v s="$sr" -v y="$yy" '$1==a && $2==s && $3==y{f=1} END{exit !f}' $T/yeni.index && continue
+    # ""-birlestirme: METIN karsilastirmasi (awk sayi gibi gorunen alanlari sayisal karsilastirir: 1.10 == 1.1)
+    awk -v a="$ad" -v s="$sr" -v y="$yy" '$1""==a"" && $2""==s"" && $3""==y""{f=1} END{exit !f}' $T/yeni.index && continue
     [ "$(sha256sum "$P/$f" | cut -d' ' -f1)" = "$h" ] || { echo "HATA: $f yerel sha256 tutmuyor"; exit 1; }
     u=$(curl -sIL --retry 5 --retry-all-errors --retry-delay 5 "$DEPO/$f" | awk 'tolower($1)=="content-length:"{v=$2} END{gsub("\r","",v); print v}')
     [ "$u" = "$(stat -c%s "$P/$f")" ] || { echo "HATA: $f archive.org'da yok ya da boyutu farkli ($u); once atasos-84"; exit 1; }

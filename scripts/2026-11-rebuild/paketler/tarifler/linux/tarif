@@ -6,19 +6,23 @@
 # - eski cekirdek (atas6) SILINMEZ: hicbir pakete ait degil, /boot'ta ve GRUB "Gelismis secenekler"de yedek kalir.
 # - kurulum kancasi: depmod + (sistemin kendi GRUB'u varsa) grub-mkconfig. Baska sistemin GRUB'u ile acilan
 #   kurulumlarda (or. Kubuntu yaninda p4) o sistemde menu guncellenmeli.
+# - 6.18.65: kaynak 6.18.64 arsivi + kernel.org artimli yamasi (patch-6.18.64-65; incr/sha256sums.asc imzali).
+#   Yukseltmede onceki 6.18.64 dosyalari silinir (atspkg); atas6 yine yedek olarak kalir.
 name=linux
-version=6.18.64
+version=6.18.65
 release=1
 description="Linux cekirdegi 6.18 LTS (atas7) - 6.16 destek disi; eski cekirdek yedek olarak kalir"
 depends=()
 # atasos-nouveau.conf + nouveau-yukle: nouveau yalniz VGA sinifi NVIDIA kartta yuklenir. p4 (Huawei, MX250 = 3D
 # denetleyici, Optimus) gercek donanim denemesinde nouveau acilista cokup (gp102_acr_wpr_patch, fb 0 MiB) aygit
 # kilidini tuttu -> yeniden baslatma sonsuza dek takildi. Kural modprobe.d'de: eski cekirdek (atas6) icin de gecerli.
-source=(linux-6.18.64.tar.xz config-6.18.64-atas7 atasos-nouveau.conf nouveau-yukle)
+source=(linux-6.18.64.tar.xz patch-6.18.64-65.xz config-6.18.64-atas7 atasos-nouveau.conf nouveau-yukle)
 
 build() {
-    KR=6.18.64-atas7
+    KR=6.18.65-atas7
     cd "$srcdir/linux-6.18.64" || exit 1
+    xz -dc "$srcdir/patch-6.18.64-65.xz" | patch -p1 -s || { echo "artimli yama uygulanamadi"; exit 1; }
+    grep -q '^SUBLEVEL = 65$' Makefile || { echo "yama sonrasi SUBLEVEL 65 degil"; exit 1; }
     cp "$srcdir/config-6.18.64-atas7" .config
     make olddefconfig > /dev/null
     # olddefconfig secenekleri SESSIZCE degistirebilir: verilen yapilandirmayla birebir ayni olmali.

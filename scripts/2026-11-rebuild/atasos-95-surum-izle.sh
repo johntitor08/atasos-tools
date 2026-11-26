@@ -79,17 +79,17 @@ KAYNAK = {
     "xdg-desktop-portal": (lambda: github("flatpak/xdg-desktop-portal", r"(1\.\d+\.\d+)"), "1.18", "1.20+ GStreamer ister"),
     "xz":        (lambda: github("tukaani-project/xz", r"v(\d+\.\d+\.\d+)"), None, ""),
     "dbus":      (lambda: liste("https://dbus.freedesktop.org/releases/dbus/", r"dbus-(1\.16\.\d+)\.tar\.xz"), "1.16", "kararli seri"),
+    "freetype": (lambda: liste("https://download.savannah.gnu.org/releases/freetype/", r"freetype-(\d+\.\d+\.\d+)\.tar\.xz"), None, ""),
+    "libjpeg-turbo": (lambda: github("libjpeg-turbo/libjpeg-turbo", r"(\d+\.\d+\.\d+)"), None, ""),
+    "python": (lambda: liste("https://www.python.org/ftp/python/", r'href="(3\.13\.\d+)/"'), "3.13", ""),
+    "git": (lambda: liste("https://mirrors.edge.kernel.org/pub/software/scm/git/", r"git-(\d+\.\d+\.\d+)\.tar\.xz"), None, ""),
     "xdg-desktop-portal-kde": (lambda: liste("https://download.kde.org/stable/plasma/", r'href="(6\.\d+\.\d+)/"') + liste("https://download.kde.org/Attic/plasma/", r'href="(6\.\d+\.\d+)/"'), "6.3", "Plasma surumuyle ayni olmali"),
 }
 # kanalda henuz olmayan ama izlenen temel paketler: v36/p5'teki surum
 TEMEL = {
-    "freetype":  ("2.13.3", lambda: liste("https://download.savannah.gnu.org/releases/freetype/", r"freetype-(\d+\.\d+\.\d+)\.tar\.xz"), None),
     "harfbuzz":  ("10.1.0", lambda: github("harfbuzz/harfbuzz", r"(\d+\.\d+\.\d+)"), None),
-    "libjpeg-turbo": ("3.0.4", lambda: github("libjpeg-turbo/libjpeg-turbo", r"(\d+\.\d+\.\d+)"), None),
-    "python":    ("3.13.7", lambda: liste("https://www.python.org/ftp/python/", r'href="(3\.13\.\d+)/"'), "3.13"),
-    "git":       ("2.50.1", lambda: liste("https://mirrors.edge.kernel.org/pub/software/scm/git/", r"git-(\d+\.\d+\.\d+)\.tar\.xz"), None),
     "polkit":    ("125", lambda: github("polkit-org/polkit", r"(\d+)"), None),
-    "pipewire":  ("1.2.7", lambda: [t.lstrip("v") for t in re.findall(r'"name":\s*"(\d+\.\d+\.\d+)"', al("https://gitlab.freedesktop.org/api/v4/projects/pipewire%2Fpipewire/repository/tags?per_page=100"))], None),
+    "pipewire":  ("1.2.7", lambda: [t.lstrip("v") for t in re.findall(r'"name":\s*"(\d+\.\d+\.\d+)"', al("https://gitlab.freedesktop.org/api/v4/projects/pipewire%2Fpipewire/repository/tags?per_page=100"))], "1.2"),
 }
 
 print("atasOS surum izleyici\n")
@@ -131,8 +131,14 @@ for ad, (bizde, kaynak, seri) in TEMEL.items():
 r = al("https://www.kernel.org/releases.json")
 try:
     j = json.loads(r); lts = [x["version"] for x in j["releases"] if x["moniker"] == "longterm"]
-    ser = [x["version"] for x in j["releases"] if x["version"].startswith("6.16")]
-    print(f"\n  cekirdek: bizde 6.16.1-atas6; 6.16 serisi {'destekleniyor: ' + ser[0] if ser else 'DESTEK DISI (EOL)'}; guncel LTS: {', '.join(lts[:3])}")
+    bizde = en_yeni(dizin.get("linux", [])) or "6.16.1"
+    seri = ".".join(bizde.split(".")[:2])
+    ser = [x for x in j["releases"] if x["version"].startswith(seri + ".")]
+    durum = ("DESTEK DISI (EOL)" if ser[0].get("iseol") else "destekleniyor") if ser else "DESTEK DISI (EOL)"
+    son = ser[0]["version"] if ser else "?"
+    gun = "guncel" if ser and anahtar(son) <= anahtar(bizde) else "GUNCELLEME VAR"
+    if gun != "guncel": sayi += 1
+    print(f"\n  cekirdek (paket linux): bizde {bizde}; {seri} serisi {durum}, en yeni {son} -> {gun}; guncel LTS: {', '.join(lts[:3])}")
 except Exception:
     print("\n  cekirdek: kernel.org okunamadi")
 print(f"\n  {sayi} pakette guncelleme var.")

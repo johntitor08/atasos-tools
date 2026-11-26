@@ -1,0 +1,46 @@
+# atasOS tarifi: polkit 128 (p5/v38'de 125). Kanala ILK kez giriyor. 128: dogrulama yardimcisinda 2 CVE
+# (CVE-2026-4897, CVE-2026-85498), ajan oturumunda use-after-free, auth_admin_keep onbelleginin yeniden denetimi.
+# p5'teki derleme birebir: /usr/lib64 kutuphaneler, /usr/lib/polkit-1 (polkitd + yardimci), duktape JS motoru,
+# logind oturum takibi, PAM. pkexec ve polkit-agent-helper-1 setuid root (pakette korunur; tar 0:0 + 4755).
+# /etc pakete GIRMEZ: /etc/polkit-1/rules.d'de atasOS'un kendi kurallari (49-atasos-guc, 50-atasos-ag),
+# /etc/pam.d/polkit-1 atasOS'un kendi dosyasi (oncelikli). PAM dosyasi /usr/lib/pam.d'ye (PAM ikisini de okur).
+# 127'nin soket ile calisan yardimcisi (polkit-agent-helper.socket) birim olarak gelir ama ETKINLESTIRILMEZ;
+# setuid yardimci eskisi gibi calisir.
+name=polkit
+version=128
+release=1
+description="polkit yetkilendirme servisi - guvenlik guncellemesi (2 CVE)"
+depends=()
+source=(polkit-128.tar.gz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+build() {
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    meson setup build --prefix=/usr --buildtype=release --wrap-mode=nofallback \
+        -Dsession_tracking=logind -Dauthfw=pam -Dos_type=lfs -Dman=false -Dtests=false -Dexamples=false \
+        -Dintrospection=false -Dgtk_doc=false -Dgettext=true -Dpolkitd_user=polkitd
+    ninja -C build
+    DESTDIR="$pkgdir" meson install -C build
+    rm -rf "$pkgdir/etc"
+    chmod 4755 "$pkgdir/usr/bin/pkexec" "$pkgdir/usr/lib/polkit-1/polkit-agent-helper-1"
+    for f in usr/lib/polkit-1/polkitd usr/lib/polkit-1/polkit-agent-helper-1 usr/bin/pkexec usr/bin/pkcheck usr/bin/pkaction \
+             usr/bin/pkttyagent usr/share/locale/tr/LC_MESSAGES/polkit-1.mo usr/lib/pam.d/polkit-1 usr/share/polkit-1/rules.d/50-default.rules usr/lib/systemd/system/polkit.service; do
+        [ -e "$pkgdir/$f" ] || { echo "$f pakette yok"; exit 1; }
+    done
+    readelf -d "$pkgdir/usr/lib/polkit-1/polkitd" | grep -q 'NEEDED.*libduktape' || { echo "polkitd duktape'siz"; exit 1; }
+    readelf -d "$pkgdir/usr/lib/polkit-1/polkitd" | grep -q 'NEEDED.*libsystemd' || { echo "polkitd logind'siz"; exit 1; }
+    readelf -d "$pkgdir/usr/lib/polkit-1/polkit-agent-helper-1" | grep -q 'NEEDED.*libpam' || { echo "yardimci PAM'siz"; exit 1; }
+    find "$pkgdir" -path '*/sockets.target.wants/*' | grep -q . && { echo "soket birimi etkin kurulmus"; exit 1; }
+    abi_denetle /usr/lib64 libpolkit-gobject-1.so.0
+    abi_denetle /usr/lib64 libpolkit-agent-1.so.0
+}

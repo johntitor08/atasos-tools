@@ -43,7 +43,8 @@ for f in "${SECILEN[@]}"; do
     pk=$(tar -xOf "$P/$f" .PKGINFO 2>/dev/null) || { echo "HATA: $f icinde .PKGINFO yok"; exit 1; }
     ad=$(awk -F' = ' '$1=="name"{print $2}' <<< "$pk"); sr=$(awk -F' = ' '$1=="version"{print $2}' <<< "$pk"); yy=$(awk -F' = ' '$1=="release"{print $2}' <<< "$pk")
     [ "$f" = "$ad-$sr-$yy.atspkg.tar.zst" ] || { echo "HATA: dosya adi ($f) PKGINFO ile ($ad-$sr-$yy) tutmuyor"; exit 1; }
-    awk -v a="$ad" -v s="$sr" -v y="$yy" '$1==a && $2==s && $3==y{f=1} END{exit !f}' $T/yeni.index \
+    # ""-birlestirme: METIN karsilastirmasi (awk sayi gibi gorunen alanlari sayisal karsilastirir: 1.10 == 1.1)
+    awk -v a="$ad" -v s="$sr" -v y="$yy" '$1""==a"" && $2""==s"" && $3""==y""{f=1} END{exit !f}' $T/yeni.index \
         && { echo "HATA: dizinde zaten var: $ad $sr-$yy (ayni surum yeniden yayinlanamaz; release'i artir)"; exit 1; }
     echo "$ad $sr $yy $f $h" >> $T/yeni.index
     echo "  eklenecek: $ad $sr-$yy  ($(du -h "$P/$f" | cut -f1), sha256 ${h:0:16}...)"
