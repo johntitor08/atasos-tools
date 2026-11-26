@@ -84,13 +84,13 @@ KAYNAK = {
     "python": (lambda: liste("https://www.python.org/ftp/python/", r'href="(3\.13\.\d+)/"'), "3.13", ""),
     "git": (lambda: liste("https://mirrors.edge.kernel.org/pub/software/scm/git/", r"git-(\d+\.\d+\.\d+)\.tar\.xz"), None, ""),
     "xdg-desktop-portal-kde": (lambda: liste("https://download.kde.org/stable/plasma/", r'href="(6\.\d+\.\d+)/"') + liste("https://download.kde.org/Attic/plasma/", r'href="(6\.\d+\.\d+)/"'), "6.3", "Plasma surumuyle ayni olmali"),
+    "polkit-kde-agent": (lambda: liste("https://download.kde.org/stable/plasma/", r'href="(6\.\d+\.\d+)/"') + liste("https://download.kde.org/Attic/plasma/", r'href="(6\.\d+\.\d+)/"'), "6.3", "Plasma surumuyle ayni olmali"),
+    "pipewire":  (lambda: [t.lstrip("v") for t in re.findall(r'"name":\s*"(\d+\.\d+\.\d+)"', al("https://gitlab.freedesktop.org/api/v4/projects/pipewire%2Fpipewire/repository/tags?per_page=100"))], "1.2", ""),
+    "polkit":    (lambda: github("polkit-org/polkit", r"(\d+)"), None, ""),
+    "harfbuzz":  (lambda: github("harfbuzz/harfbuzz", r"(\d+\.\d+\.\d+)"), None, "ABI kararli (.so.0)"),
 }
-# kanalda henuz olmayan ama izlenen temel paketler: v36/p5'teki surum
-TEMEL = {
-    "harfbuzz":  ("10.1.0", lambda: github("harfbuzz/harfbuzz", r"(\d+\.\d+\.\d+)"), None),
-    "polkit":    ("125", lambda: github("polkit-org/polkit", r"(\d+)"), None),
-    "pipewire":  ("1.2.7", lambda: [t.lstrip("v") for t in re.findall(r'"name":\s*"(\d+\.\d+\.\d+)"', al("https://gitlab.freedesktop.org/api/v4/projects/pipewire%2Fpipewire/repository/tags?per_page=100"))], "1.2"),
-}
+# kanalda henuz olmayan ama izlenen temel paketler: v36/p5'teki surum (9-10. partide hepsi kanala girdi)
+TEMEL = {}
 
 print("atasOS surum izleyici\n")
 dizin = {}

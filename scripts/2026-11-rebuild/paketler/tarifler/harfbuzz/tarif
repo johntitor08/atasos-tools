@@ -1,0 +1,44 @@
+# atasOS tarifi: HarfBuzz 15.2.0 (p5/v38'de 10.1.0). Kanala ILK kez giriyor.
+# Metin sekillendirme: Qt6Gui (tum Plasma/KDE yazilari), pango, pangoft2 ve GTK3 libharfbuzz.so.0'a bagli.
+# HarfBuzz ABI'yi bozmuyor (SONAME .so.0 hep ayni) -> yine de nm ile ABI denetimi: eski bir sembol eksikse DUR.
+# p5'teki derleme birebir: /usr/lib64, yalniz freetype ile; libharfbuzz + libharfbuzz-subset. glib/gobject/cairo/
+# icu/graphite/araclar YOK. 11+ ile gelen raster/vector/gpu kutuphaneleri varsayilan ACIK -> esitlik icin kapali
+# (kullanan yok; png/zlib bagimliligi da gelmez). p5 'debugoptimized' (-g) idi; burada release.
+name=harfbuzz
+version=15.2.0
+release=1
+description="HarfBuzz metin sekillendirme kutuphanesi (Qt/Plasma, pango, GTK)"
+depends=()
+source=(harfbuzz-15.2.0.tar.xz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
+
+build() {
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+    meson setup build --prefix=/usr --buildtype=release --wrap-mode=nofallback \
+        -Dfreetype=enabled -Dsubset=enabled \
+        -Dglib=disabled -Dgobject=disabled -Dcairo=disabled -Dchafa=disabled -Dicu=disabled -Dgraphite=disabled \
+        -Dgraphite2=disabled -Dfontations=disabled -Dharfrust=disabled -Dkbts=disabled -Dwasm=disabled \
+        -Draster=disabled -Dvector=disabled -Dgpu=disabled -Dgpu_demo=disabled -Dpng=disabled -Dzlib=disabled \
+        -Dtests=disabled -Dintrospection=disabled -Ddocs=disabled -Dutilities=disabled -Dbenchmark=disabled
+    ninja -C build
+    DESTDIR="$pkgdir" meson install -C build
+    # yalniz iki kutuphane (p5 ile ayni); baska .so cikarsa (yeni ozellik sessizce acildi) DUR
+    l=$(cd "$pkgdir/usr/lib64" && ls lib*.so.0 | LC_ALL=C sort | tr '\n' ' ')
+    [ "$l" = "libharfbuzz-subset.so.0 libharfbuzz.so.0 " ] || { echo "beklenmeyen kutuphaneler: $l"; exit 1; }
+    n=$(readelf -d "$pkgdir/usr/lib64/libharfbuzz.so.0" | grep NEEDED | grep -oE '\[[^]]+\]' | tr -d '[]' | LC_ALL=C sort | tr '\n' ' ')
+    [ "$n" = "libc.so.6 libfreetype.so.6 libm.so.6 " ] || { echo "libharfbuzz NEEDED p5'tekinden farkli: $n"; exit 1; }
+    grep -q '^Version: 15.2.0' "$pkgdir/usr/lib64/pkgconfig/harfbuzz.pc" || { echo "harfbuzz.pc surumu yanlis"; exit 1; }
+    [ -f "$pkgdir/usr/lib64/cmake/harfbuzz/harfbuzz-config.cmake" ] || { echo "cmake dosyasi yok"; exit 1; }
+    abi_denetle /usr/lib64 libharfbuzz.so.0
+    abi_denetle /usr/lib64 libharfbuzz-subset.so.0
+}

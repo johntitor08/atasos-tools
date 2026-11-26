@@ -1,5 +1,6 @@
 # atasOS temel paketleri: ISO'dan gelen ama atspkg'ye kayitli olmayan yazilim.
 # atasos-guncelle bunlari depoda varsa ilk kez kurar; sonra 'atspkg yukselt' gunceller.
+# 1.11: polkit-kde-agent ISO'da hic yoktu; buradan ilk kez kurulur (grafik parola penceresi).
 openssl
 curl
 sudo
@@ -27,3 +28,5 @@ freetype
 linux
 pipewire
 polkit
+harfbuzz
+polkit-kde-agent

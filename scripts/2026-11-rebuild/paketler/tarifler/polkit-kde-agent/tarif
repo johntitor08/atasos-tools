@@ -1,0 +1,34 @@
+# atasOS tarifi: polkit-kde-agent-1 6.3.4 (Plasma 6.3.4 ile ayni surum). atasOS'ta HIC YOKTU -> yeni paket.
+# Sorun: grafik polkit ajani olmadigi icin yetki isteyen KDE/uygulama islemleri parola penceresi acamiyordu;
+# pkexec yalniz terminalde (kendi metin ajaniyla) soruyordu. Bu paket KDE'nin parola penceresini getirir.
+# Baslatma: Plasma systemd ile acilirsa plasma-workspace.target zaten plasma-polkit-agent.service'i ister (Wants);
+# systemd'siz acilista /etc/xdg/autostart'taki .desktop (X-systemd-skip=true) devreye girer. Kanca gerekmez.
+# Bagimliliklar p5/v38'de var: Qt 6.8.1 (Quick/Qml), KF6 6.13 (I18nQml, Crash, DBusAddons, WindowSystem),
+# Kirigami, polkit-qt6-1 0.200, ECM.
+name=polkit-kde-agent
+version=6.3.4
+release=1
+description="KDE polkit parola penceresi (yetki isteyen islemler icin grafik dogrulama)"
+depends=()   # polkit her atasOS'ta var (ISO'dan); diger tarifler gibi bos
+source=(polkit-kde-agent-1-6.3.4.tar.xz)
+
+build() {
+    cd "$srcdir/polkit-kde-agent-1-6.3.4" || exit 1
+    cmake -S . -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBEXECDIR=libexec \
+        -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+    ninja -C build
+    DESTDIR="$pkgdir" cmake --install build
+    B=/usr/libexec/polkit-kde-authentication-agent-1
+    for f in usr/libexec/polkit-kde-authentication-agent-1 etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop \
+             usr/share/applications/org.kde.polkit-kde-authentication-agent-1.desktop \
+             usr/lib/systemd/user/plasma-polkit-agent.service \
+             usr/share/locale/tr/LC_MESSAGES/polkit-kde-authentication-agent-1.mo; do
+        [ -e "$pkgdir/$f" ] || { echo "$f pakette yok"; find "$pkgdir" -type f | sed "s|$pkgdir||"; exit 1; }
+    done
+    grep -q "^Exec=$B$" "$pkgdir/etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop" || { echo "autostart Exec yolu yanlis"; exit 1; }
+    grep -q "^ExecStart=$B$" "$pkgdir/usr/lib/systemd/user/plasma-polkit-agent.service" || { echo "servis ExecStart yolu yanlis"; exit 1; }
+    readelf -d "$pkgdir$B" | grep -q 'NEEDED.*libpolkit-qt6-agent-1' || { echo "polkit-qt6 ajan kutuphanesine bagli degil"; exit 1; }
+    readelf -d "$pkgdir$B" | grep -q 'NEEDED.*libKF6I18nQml' || { echo "KF6 I18nQml'e bagli degil"; exit 1; }
+    find "$pkgdir" -path '*/etc/*' ! -path '*/etc/xdg/autostart*' -type f | grep -q . && { echo "/etc'ye beklenmeyen dosya"; exit 1; }
+    echo "ajan: $B (autostart + plasma-polkit-agent.service, Turkce ceviri var)"
+}

@@ -20,7 +20,7 @@ KN=/veri/atasos-iso/kanal
 LOG=$P/derleme-$(date +%Y%m%d-%H%M).log
 PAKETLER=("$@"); [ ${#PAKETLER[@]} -gt 0 ] || PAKETLER=(openssl curl sudo)
 # bagimlilik sirasi: her paket derlenir derlenmez gecici katmana kurulur, sonrakiler ona karsi derlenir (nss -> nspr+sqlite)
-SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups python git libjpeg-turbo freetype pipewire polkit linux atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
+SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups python git libjpeg-turbo freetype harfbuzz pipewire polkit polkit-kde-agent linux atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
 S2=(); for s in "${SIRA[@]}"; do for p in "${PAKETLER[@]}"; do [ "$p" = "$s" ] && S2+=("$p"); done; done
 for p in "${PAKETLER[@]}"; do [[ " ${SIRA[*]} " == *" $p "* ]] || S2+=("$p"); done
 PAKETLER=("${S2[@]}")
@@ -167,7 +167,7 @@ for p in "${PAKETLER[@]}"; do
         curl)    v=$(cr curl --version 2>&1 | head -1); echo "  curl: $v"; grep -q "^curl 8.23.0" <<< "$v" || H=1
                  c=$(cr curl -sSL -o /dev/null -w '%{http_code}' https://archive.org/download/atasos-depo/atspkg.index 2>&1)
                  echo "  curl https://archive.org (TLS dogrulamali): $c"; [ "$c" = 200 ] || H=1 ;;
-        expat)   v=$(cr xmlwf -v 2>&1 | head -1); echo "  expat: $v"; grep -q "expat_2.10.0" <<< "$v" || H=1
+        expat)   v=$(cr xmlwf -v 2>&1 | head -1); echo "  expat: $v"; grep -q "expat_2.11.0" <<< "$v" || H=1
                  p=$(cr python3 -c 'import pyexpat; print(pyexpat.EXPAT_VERSION)' 2>&1); echo "  python pyexpat: $p (bilgi; python kendi expat'ini gomulu kullaniyor olabilir)" ;;
         zlib)    p=$(cr python3 -c 'import zlib; print(zlib.ZLIB_RUNTIME_VERSION)' 2>&1); echo "  zlib (python calisma ani): $p"; [ "$p" = 1.3.2 ] || H=1
                  c=$(cr sh -c 'echo atasos | gzip | gzip -d' 2>&1); echo "  gzip gidis-donus: $c"; [ "$c" = atasos ] || H=1 ;;
@@ -205,6 +205,32 @@ print("ok", ssl.OPENSSL_VERSION.split()[1], "sqlite", sqlite3.sqlite_version)' 2
 f = ctypes.CDLL("libfreetype.so.6"); lib = ctypes.c_void_p(); f.FT_Init_FreeType(ctypes.byref(lib))
 a, b, c = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(); f.FT_Library_Version(lib, ctypes.byref(a), ctypes.byref(b), ctypes.byref(c)); print("%d.%d.%d" % (a.value, b.value, c.value))' 2>&1); echo "  libfreetype calisma ani surumu: $c"; [ "$c" = 2.15.0 ] || H=1
                  c=$(cr sh -c 'f=$(find /usr/share/fonts -name "*.ttf" -o -name "*.otf" | head -1); fc-scan --format "%{family}\n" "$f" | head -1' 2>&1); echo "  fontconfig fc-scan (freetype ile yazi tipi ayristirma): $c"; [ -n "$c" ] || H=1 ;;
+        # harfbuzz: gercek sekillendirme (Turkce harflerle; 0 = .notdef/eksik glif) + subset + Qt6Gui/pango/GTK3 RTLD_NOW ile yukleniyor mu
+        harfbuzz) c=$(cr python3 -c 'import ctypes, glob
+h = ctypes.CDLL("libharfbuzz.so.0"); V = ctypes.c_void_p
+h.hb_version_string.restype = ctypes.c_char_p
+for f in ("hb_blob_create_from_file", "hb_face_create", "hb_font_create", "hb_buffer_create"): getattr(h, f).restype = V
+h.hb_blob_create_from_file.argtypes = [ctypes.c_char_p]; h.hb_face_create.argtypes = [V, ctypes.c_uint]; h.hb_font_create.argtypes = [V]
+h.hb_buffer_add_utf8.argtypes = [V, ctypes.c_char_p, ctypes.c_int, ctypes.c_uint, ctypes.c_int]
+h.hb_buffer_guess_segment_properties.argtypes = [V]; h.hb_shape.argtypes = [V, V, V, ctypes.c_uint]; h.hb_buffer_get_length.argtypes = [V]
+class GI(ctypes.Structure): _fields_ = [("g", ctypes.c_uint32), ("m", ctypes.c_uint32), ("c", ctypes.c_uint32), ("a", ctypes.c_uint32), ("b", ctypes.c_uint32)]
+h.hb_buffer_get_glyph_infos.restype = ctypes.POINTER(GI); h.hb_buffer_get_glyph_infos.argtypes = [V, V]
+yt = (glob.glob("/usr/share/fonts/**/DejaVuSans.ttf", recursive=True) + sorted(glob.glob("/usr/share/fonts/**/*.ttf", recursive=True)))[0]
+font = h.hb_font_create(h.hb_face_create(h.hb_blob_create_from_file(yt.encode()), 0)); buf = h.hb_buffer_create()
+h.hb_buffer_add_utf8(buf, "atasOS şğıİç".encode(), -1, 0, -1); h.hb_buffer_guess_segment_properties(buf); h.hb_shape(font, buf, None, 0)
+n = h.hb_buffer_get_length(buf); gi = h.hb_buffer_get_glyph_infos(buf, None)
+s = ctypes.CDLL("libharfbuzz-subset.so.0"); s.hb_subset_input_create_or_fail.restype = V
+print(h.hb_version_string().decode(), n, sum(1 for i in range(n) if gi[i].g == 0), "subset" if s.hb_subset_input_create_or_fail() else "subset-YOK")' 2>&1)
+                 echo "  harfbuzz surum / 'atasOS şğıİç' glif sayisi / eksik glif / subset: $c"; [ "$c" = "15.2.0 12 0 subset" ] || H=1
+                 c=$(cr python3 -c 'import ctypes, os
+for l in ("libQt6Gui.so.6", "libpango-1.0.so.0", "libpangoft2-1.0.so.0", "libgtk-3.so.0"): ctypes.CDLL(l, mode=os.RTLD_NOW | os.RTLD_GLOBAL)
+print("ok")' 2>&1); echo "  Qt6Gui/pango/pangoft2/GTK3 yeni harfbuzz ile yukleniyor (RTLD_NOW): $c"; [ "$c" = ok ] || H=1 ;;
+        polkit-kde-agent) B=/usr/libexec/polkit-kde-authentication-agent-1
+                 [ -x $K$B ] && echo "  polkit-kde-agent: $B var" || { echo "  polkit-kde-agent: $B YOK <<<"; H=1; }
+                 for f in /etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop /usr/lib/systemd/user/plasma-polkit-agent.service /usr/share/locale/tr/LC_MESSAGES/polkit-kde-authentication-agent-1.mo; do
+                     [ -s $K$f ] && echo "  polkit-kde-agent: $f var" || { echo "  polkit-kde-agent: $f YOK <<<"; H=1; }; done
+                 grep -q 'plasma-polkit-agent.service' $K/usr/lib/systemd/user/plasma-workspace.target && echo "  plasma-workspace.target ajani istiyor (Wants)" || { echo "  plasma-workspace.target ajani istemiyor <<<"; H=1; }
+                 c=$(cr sh -c "QT_QPA_PLATFORM=offscreen $B --help 2>&1 | head -3 | grep -ci usage"); echo "  ajan calisiyor (--help): $c"; [ "${c:-0}" -ge 1 ] || echo "  (bilgi: --help yaniti yok; ldd + VM denemesi esas)" ;;
         pipewire) v=$(cr pipewire --version 2>&1 | grep -o 'libpipewire [0-9.]*' | sort -u); echo "  pipewire (derlenen + baglanan): $v"; [ "$v" = "libpipewire 1.2.8" ] || H=1
                  # videotestsrc + audiomixer: spa-inspect veri dongusu/sistem arayuzu vermedigi icin impl_init hata yolunda
                  # cokuyor (1.2.7'de de, Kubuntu'nun 1.6.2'sinde de ayni; pipewire sunucusunda bu yol yok) -> haric
@@ -263,7 +289,7 @@ a, b, c = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(); f.FT_Library_Version(l
                  cr glib-compile-schemas --strict --dry-run /usr/share/glib-2.0/schemas >/dev/null 2>&1 && echo "  glib-compile-schemas: semalar gecerli" || { echo "  glib-compile-schemas HATA <<<"; H=1; } ;;
         atasos-guncelleme) cr bash -n /usr/bin/atasos-guncelle && cr bash -n /usr/bin/atasos-guncelleme-denetle && [ -s $K/etc/xdg/autostart/atasos-guncelleme-denetle.desktop ] \
                      && echo "  guncelleyici + gunluk denetleyici: sozdizimi tamam, autostart var" || { echo "  guncelleyici/denetleyici sorunlu <<<"; H=1; }
-                 for t in xz dbus nspr sqlite nss libcups python git libjpeg-turbo freetype linux pipewire polkit; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
+                 for t in xz dbus nspr sqlite nss libcups python git libjpeg-turbo freetype linux pipewire polkit harfbuzz polkit-kde-agent; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
                  [ "$(grep -nx nspr $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" -lt "$(grep -nx nss $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" ] \
                      && echo "  temel.list: 6. parti var (nspr/sqlite nss'ten once)" || { echo "  temel.list: sira yanlis <<<"; H=1; } ;;
         fastfetch) v=$(cr fastfetch --version 2>&1 | head -1); echo "  fastfetch: $v"; grep -q "2\.71\.0" <<< "$v" || H=1
@@ -272,7 +298,7 @@ a, b, c = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(); f.FT_Library_Version(l
                      [ -e $K$f ] && echo "  portal-kde: $f var" || { echo "  portal-kde: $f YOK <<<"; H=1; }; done ;;
     esac
 done
-ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell /usr/bin/xz /usr/lib/liblzma.so.5 /usr/bin/kmod /usr/lib/systemd/systemd /usr/bin/dbus-daemon /usr/lib/libdbus-1.so.3 /usr/libexec/dbus-daemon-launch-helper /usr/bin/NetworkManager /usr/bin/python3.13 /usr/lib/libpython3.13.so.1.0 /usr/bin/git /usr/libexec/git-core/git-remote-https /usr/lib/libjpeg.so.62 /usr/lib/libturbojpeg.so.0 /usr/lib/libfreetype.so.6 /usr/bin/fc-list /usr/lib/libharfbuzz.so.0 /usr/lib/python3.13/site-packages/libxsltmod.so /usr/lib/python3.13/site-packages/yaml/_yaml.cpython-313-x86_64-linux-gnu.so /usr/bin/pipewire /usr/lib64/libpipewire-0.3.so.0 /usr/lib/polkit-1/polkitd /usr/bin/pkexec /usr/lib64/libpolkit-gobject-1.so.0; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
+ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell /usr/bin/xz /usr/lib/liblzma.so.5 /usr/bin/kmod /usr/lib/systemd/systemd /usr/bin/dbus-daemon /usr/lib/libdbus-1.so.3 /usr/libexec/dbus-daemon-launch-helper /usr/bin/NetworkManager /usr/bin/python3.13 /usr/lib/libpython3.13.so.1.0 /usr/bin/git /usr/libexec/git-core/git-remote-https /usr/lib/libjpeg.so.62 /usr/lib/libturbojpeg.so.0 /usr/lib/libfreetype.so.6 /usr/bin/fc-list /usr/lib/libharfbuzz.so.0 /usr/lib/python3.13/site-packages/libxsltmod.so /usr/lib/python3.13/site-packages/yaml/_yaml.cpython-313-x86_64-linux-gnu.so /usr/bin/pipewire /usr/lib64/libpipewire-0.3.so.0 /usr/lib/polkit-1/polkitd /usr/bin/pkexec /usr/lib64/libpolkit-gobject-1.so.0 /usr/lib64/libharfbuzz.so.0 /usr/lib64/libharfbuzz-subset.so.0 /usr/lib/libQt6Gui.so.6 /usr/lib64/libpango-1.0.so.0 /usr/lib64/libgtk-3.so.0 /usr/libexec/polkit-kde-authentication-agent-1; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
 [ -z "$ek" ] && echo "  eksik kutuphane yok" || { echo "  EKSIK KUTUPHANE <<<"; echo "$ek" | sed 's/^/    /'; H=1; }
 cr atspkg listele 2>&1 | sed 's/^/  kurulu: /'
 [ $H -eq 0 ] || { echo "  DURDU: duman testi basarisiz; paketler yayinlanmamali."; exit 1; }

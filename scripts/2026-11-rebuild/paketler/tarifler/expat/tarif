@@ -1,16 +1,29 @@
 # atasOS tarifi: expat (XML ayristirici; v36'da 2.7.1). Ozgun: /usr/lib, statik kutuphane yok, cmake dosyalari /usr/lib/cmake.
-# SONAME libexpat.so.1 degismez; eski libexpat.so.1.10.2 dosyasi diskte kalir ama baglanti yenisine gider.
+# SONAME libexpat.so.1 degismez; eski libexpat.so.1.x dosyasi diskte kalir ama baglanti yenisine gider.
+# 2.11.0 (10. parti): imza Sebastian Pipping'in imzalama alt anahtari (ana anahtar 2.10.0 ile ayni).
 name=expat
-version=2.10.0
+version=2.11.0
 release=1
 description="expat XML ayristirici kutuphanesi - guvenlik guncellemesi"
 depends=()
-source=(expat-2.10.0.tar.xz)
+source=(expat-2.11.0.tar.xz)
+
+abi_denetle() {
+    # ABI denetimi: sistemdeki eski kutuphanenin disa acik sembollerinden biri bile yenisinde yoksa DUR. $1=dizin $2=ad
+    eski=$(readlink -f "$1/$2" 2>/dev/null); yeni=$(readlink -f "$pkgdir$1/$2")
+    [ -f "$yeni" ] || { echo "ABI: $pkgdir$1/$2 yok"; exit 1; }
+    if [ -f "$eski" ]; then
+        eksik=$(comm -23 <(nm -D --defined-only "$eski" | awk '{print $3}' | sort -u) <(nm -D --defined-only "$yeni" | awk '{print $3}' | sort -u))
+        [ -z "$eksik" ] || { echo "ABI: yeni $2 su sembolleri vermiyor:"; echo "$eksik" | head; exit 1; }
+        echo "ABI: $2 eski surumun tum sembollerini veriyor"
+    fi
+}
 
 build() {
-    ./configure --prefix=/usr --disable-static --docdir=/usr/share/doc/expat-2.10.0
+    ./configure --prefix=/usr --disable-static --docdir=/usr/share/doc/expat-2.11.0
     make -j"$(nproc)"
     make DESTDIR="$pkgdir" install
     rm -f "$pkgdir"/usr/lib/libexpat.la
     [ -f "$pkgdir/usr/lib/libexpat.so.1" ] || { echo "libexpat.so.1 /usr/lib altinda degil"; exit 1; }
+    abi_denetle /usr/lib libexpat.so.1
 }
