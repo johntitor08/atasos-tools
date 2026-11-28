@@ -1,0 +1,81 @@
+#!/bin/bash
+# atasOS: Firefox'u Mozilla'nin resmi en yeni surumuyle gunceller (/opt/firefox, Turkce).
+# Indirme Mozilla'nin imzali SHA512SUMS dosyasiyla dogrulanir (anahtar parmak izi asagida sabit).
+# Menu: "Firefox'u Guncelle" (Konsole icinde; parola pkexec ile sorulur). "Sistemi Guncelle" de bunu cagirir.
+# Kullanim:
+#   atasos-firefox-guncelle            guncelle (gerekirse parola sorar)
+#   atasos-firefox-guncelle --zorla    surum ayni olsa da yeniden kur
+#   atasos-firefox-guncelle --en-yeni  ROOT GEREKMEZ: yalniz "kurulu en-yeni" yazar (guncelleme bildirimi icin)
+# Cikis: 0 = guncellendi ya da zaten guncel; 1 = hata; 3 = Firefox acik oldugu icin atlandi.
+# (atasos-guncelleme 1.12 ile kanala girdi; once v36-v38 ISO'larinda elle konmustu.)
+set -uo pipefail
+export LC_ALL=C
+F=/opt/firefox
+ADRES='https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=tr'
+MOZ_FPR=14F26682D0916CDD81E37B6D61B7B526D98F0353   # Mozilla Software Releases <release@mozilla.com>
+
+kurulu_surum(){ sed -n 's/^Version=//p' $F/application.ini 2>/dev/null | head -1; }
+# Mozilla'nin "en yeni" yonlendirmesini izler (indirmez); U = son adres, V = surum
+en_yeni(){
+    U=$(curl -sSIL --max-time 30 -o /dev/null -w '%{url_effective}' "$ADRES") || return 1
+    case "$U" in https://download-installer.cdn.mozilla.net/pub/firefox/releases/*|https://archive.mozilla.org/pub/firefox/releases/*) ;;
+        *) return 2 ;; esac
+    V=$(printf '%s\n' "$U" | grep -oE 'releases/[0-9][0-9.a-z]*[0-9]' | cut -d/ -f2)
+    [ -n "$V" ]
+}
+
+if [ "${1:-}" = --en-yeni ]; then
+    [ -d $F ] || exit 1
+    en_yeni || exit 1
+    echo "$(kurulu_surum) $V"; exit 0
+fi
+
+[ "$(id -u)" -eq 0 ] || exec pkexec /usr/bin/atasos-firefox-guncelle "$@"
+Y=""; T=""
+son(){ [ -n "$T" ] && gpgconf --homedir "$T/gnupg" --kill all 2>/dev/null; [ -n "$T" ] && rm -rf "$T"; [ -n "$Y" ] && rm -rf "$Y"; }
+trap son EXIT
+dur(){ echo; echo "  HATA: $*"; echo "  Firefox degistirilmedi."; exit 1; }
+
+echo "== Firefox guncelleme =="
+[ -d $F ] || { echo "  $F yok (Firefox kurulu degil); atlandi."; exit 0; }
+MEVCUT=$(kurulu_surum)
+echo "  kurulu surum : ${MEVCUT:-yok}"
+en_yeni; rc=$?
+[ $rc -eq 2 ] && dur "beklenmeyen indirme adresi: $U"
+[ $rc -eq 0 ] || dur "Mozilla'ya ulasilamadi (internet bagli mi?)"
+D=$(basename "$U")
+echo "  en yeni surum: $V"
+if [ "$V" = "$MEVCUT" ] && [ "${1:-}" != "--zorla" ]; then echo; echo "  Firefox zaten guncel. Yapilacak bir sey yok."; exit 0; fi
+if pgrep -f '^/opt/firefox/firefox' >/dev/null; then
+    echo; echo "  Firefox acik oldugu icin guncellenmedi. Firefox'u kapatip menuden 'Firefox'u Guncelle'yi calistirin."
+    exit 3
+fi
+
+T=$(mktemp -d /var/tmp/atasos-ff.XXXXXX) || dur "gecici klasor acilamadi"
+R=https://archive.mozilla.org/pub/firefox/releases/$V
+echo; echo "== indiriliyor: $D"
+curl -fL --retry 3 --progress-bar -o "$T/$D" "$U" || dur "indirilemedi"
+for f in SHA512SUMS SHA512SUMS.asc KEY; do curl -sSfL --retry 3 -o "$T/$f" "$R/$f" || dur "$f indirilemedi"; done
+
+echo "== dogrulaniyor"
+G=$T/gnupg; mkdir -m 700 "$G"
+gpg --homedir "$G" --batch --quiet --import "$T/KEY" 2>/dev/null || dur "Mozilla anahtari okunamadi"
+gpg --homedir "$G" --batch --with-colons --fingerprint 2>/dev/null | grep -q "^fpr:*$MOZ_FPR:" || dur "Mozilla anahtari beklenen anahtar degil"
+IMZA=$(gpg --homedir "$G" --batch --status-fd 1 --verify "$T/SHA512SUMS.asc" "$T/SHA512SUMS" 2>/dev/null | awk '$2=="VALIDSIG"{print $NF}')
+[ "$IMZA" = "$MOZ_FPR" ] || dur "SHA512SUMS imzasi gecersiz"
+echo "  imza: Mozilla (gecerli)"
+BEK=$(awk -v y="linux-x86_64/tr/$D" '$2==y{print $1}' "$T/SHA512SUMS")
+[ -n "$BEK" ] || dur "SHA512SUMS'ta linux-x86_64/tr/$D yok"
+[ "$(sha512sum "$T/$D" | cut -d' ' -f1)" = "$BEK" ] || dur "indirilen dosya bozuk (sha512 tutmuyor)"
+echo "  sha512: tutuyor"
+
+echo "== kuruluyor"
+Y=$(mktemp -d /opt/.firefox-yeni.XXXXXX) || dur "gecici kurulum klasoru acilamadi"
+tar -xf "$T/$D" -C "$Y" || dur "arsiv acilamadi"
+[ -x "$Y/firefox/firefox" ] && grep -qx "Version=$V" "$Y/firefox/application.ini" || dur "acilan arsivde Firefox $V yok"
+chown -R root:root "$Y/firefox"; chmod 755 "$Y/firefox"
+rm -rf "$F.eski"
+if [ -d "$F" ]; then mv "$F" "$F.eski" || dur "eski surum kenara alinamadi"; fi
+if ! mv "$Y/firefox" "$F"; then [ -d "$F.eski" ] && mv "$F.eski" "$F"; dur "yeni surum yerine konamadi (eski surum geri alindi)"; fi
+rm -rf "$F.eski"
+echo; echo "  TAMAM: Firefox ${MEVCUT:-?} -> $V. Firefox'u acabilirsiniz."

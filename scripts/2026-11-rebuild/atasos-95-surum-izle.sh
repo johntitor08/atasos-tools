@@ -88,6 +88,7 @@ KAYNAK = {
     "pipewire":  (lambda: [t.lstrip("v") for t in re.findall(r'"name":\s*"(\d+\.\d+\.\d+)"', al("https://gitlab.freedesktop.org/api/v4/projects/pipewire%2Fpipewire/repository/tags?per_page=100"))], "1.2", ""),
     "polkit":    (lambda: github("polkit-org/polkit", r"(\d+)"), None, ""),
     "harfbuzz":  (lambda: github("harfbuzz/harfbuzz", r"(\d+\.\d+\.\d+)"), None, "ABI kararli (.so.0)"),
+    "openssh":   (lambda: liste("https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/", r"openssh-(\d+\.\d+p\d+)\.tar\.gz"), None, "PAM'siz"),
 }
 # kanalda henuz olmayan ama izlenen temel paketler: v36/p5'teki surum (9-10. partide hepsi kanala girdi)
 TEMEL = {}

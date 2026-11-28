@@ -1,7 +1,9 @@
 #!/bin/bash
-# atasOS guncelleme denetleyicisi (atasos-guncelleme 1.6). Kullanici olarak calisir, ROOT GEREKMEZ, hicbir sey KURMAZ.
+# atasOS guncelleme denetleyicisi (atasos-guncelleme 1.6; 1.12: Firefox da). Kullanici olarak calisir, ROOT GEREKMEZ,
+# hicbir sey KURMAZ.
 #   - imzali paket dizinini ~/.cache/atasos-guncelleme'ye indirir ve depo anahtariyla dogrular (gpgv)
 #   - kurulu paketlerle karsilastirir: yeni surumu olanlar + temel.list'te olup henuz kurulmamislar
+#   - Firefox'un (/opt/firefox) Mozilla'daki en yeni surumunu da denetler (atasos-firefox-guncelle --en-yeni)
 #   - guncelleme varsa KDE bildirimi gosterir; "Simdi guncelle" dugmesi "Sistemi Guncelle"yi acar
 # Kullanim:
 #   atasos-guncelleme-denetle             bir kez denetle, sonucu yaz (bildirim yok)
@@ -39,6 +41,12 @@ denetle() {
             GUNCELLEMELER+=("$ad (yeni) -> $d")
         fi
     done
+    # 1.12: Firefox (/opt/firefox, Mozilla'nin surumu; paket dizininde yok). Mozilla'ya ulasilamazsa sessizce gecilir.
+    local ff
+    if [ -x /usr/bin/atasos-firefox-guncelle ] && ff=$(/usr/bin/atasos-firefox-guncelle --en-yeni 2>/dev/null); then
+        set -- $ff
+        [ $# -eq 2 ] && yeni_mi "$1" "$2" && GUNCELLEMELER+=("firefox $1 -> $2")
+    fi
     return 0
 }
 

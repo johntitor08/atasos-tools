@@ -2,10 +2,10 @@
 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a  openssl-3.5.9.tar.gz  # imza: OpenSSL B146647E45A7B33947AB226B2A2C87D161692D40 (openssl-library.org/source/pubkeys.asc)
 8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5  curl-8.23.0.tar.xz  # imza: Daniel Stenberg 27EDEAF22F3ABCEB50DB9A125CC908FDB71E12C2
 4a38a1ab3adb1199257edc2a7c4a2bd714665eb605b04368843b06dada2cfcfb  sudo-1.9.17p2.tar.gz  # imza: Todd C. Miller 59D1E9CCBA2B376704FDD35BA9F4C021CEA470FB
-33f0c26325ac16e541e56e2f028e5f827b919a7fa73628faca54d7e62b9c8367  atasos-guncelle  # atasOS'un kendi dosyasi (Claude yazdi)
+c5a521e6c63625fecf9e64563ace247b7a89944cb6c737118927588b55c866f0  atasos-guncelle  # atasOS'un kendi dosyasi (Claude yazdi; 1.12: Firefox adimi)
 9c573c46d545decd60e746d95e438ab4f283f383418b05ff5a0f40bf79ee28ce  atasos-guncelle.desktop  # atasOS'un kendi dosyasi (Claude yazdi)
 fb886a01118f23e98a36f57dbcefb1b9d4ebec891bf07d8890cfec65f232559d  org.atasos.guncelle.policy  # atasOS'un kendi dosyasi (Claude yazdi)
-717b558d57bf53c6a6ed85b0359cf4099cd4db19e17884504a8dcc7f3624b51e  temel.list  # atasOS'un kendi dosyasi (Claude yazdi; 1.1: expat, zlib; 1.2: fastfetch; 1.3: atasos-masaustu; 1.4: libxml2, libpng, libarchive; 1.5: libxslt, libtasn1, gnutls, glib; 1.7: xz, dbus, nspr, sqlite, nss, libcups; 1.8: python, git, libjpeg-turbo, freetype; 1.9: linux; 1.10: pipewire, polkit); 1.11: harfbuzz, polkit-kde-agent
+00cba5d727c0a6cbd95f8b9d0414cfc236b52a48b756d50bab6bf3f8720d50b5  temel.list  # atasOS'un kendi dosyasi (Claude yazdi; 1.1: expat, zlib; 1.2: fastfetch; 1.3: atasos-masaustu; 1.4: libxml2, libpng, libarchive; 1.5: libxslt, libtasn1, gnutls, glib; 1.7: xz, dbus, nspr, sqlite, nss, libcups; 1.8: python, git, libjpeg-turbo, freetype; 1.9: linux; 1.10: pipewire, polkit); 1.11: harfbuzz, polkit-kde-agent; 1.12: openssh
 c624ba2998fc65df1163a49641ff3f9ab73138b11641d92c86bee0fb01b1bc7f  expat-2.10.0.tar.xz  # imza: Sebastian Pipping 3176EF7DB2367F1FCA4F306B1F9B0E909AF37285
 d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3  zlib-1.3.2.tar.xz  # imza: Mark Adler 5ED46A6721D365587791E2AA783FCD8E58BCAFBA
 # 2026-11-18 (v37 masaustu/portal): kaynaklar atasOS'ta (p4) indirilmisti; asagidaki bagimsiz kaynaklarla dogrulandi.
@@ -42,7 +42,7 @@ dfeb8418499779927a8a9c720c8ee195bf4a4c7d9a1cd55692d4e68b354dbf9e  libxslt-1.1.43
 45fcc40a7a9e8e3a83a3d30e0ccd959af2d8b707a6a05246b0a41a2d4613eecc  libxslt-1.1.43-CVE-2026-125350.patch  # Alpine aports libxslt yamasi, APKBUILD sha512 ile ayni (Chromium; okundu)
 43f3da9af6f86f763a218add5d57cd3135802a0c07c8dddc3638e977399762e9  libxslt-1.1.43-CVE-2026-11196.patch  # = Arch 0003 (type confusion, Chromium), 1.1.43e temiz uygulaniyor
 1d8a444a223cc5464240777346e125de51d8e6abf0b8bac742ac84609167dc87  libtasn1-4.21.0.tar.gz  # imza: Simon Josefsson A3CC9C870B9D310ABAD4CF2F51722B08FE4745A2 (libtasn1) + Alpine sha512 ayni
-67583fbe444990c5b2db13be12b154a7f212bcbac22521b10255b1f14bc4b39a  atasos-guncelleme-denetle  # atasOS'un kendi dosyasi (Claude yazdi; 1.6: gunluk denetim + bildirim)
+b37d868c809f3d7050e563947894c8a36e0f9e02b9c6f0ac13c9cdb97ef58233  atasos-guncelleme-denetle  # atasOS'un kendi dosyasi (Claude yazdi; 1.6: gunluk denetim + bildirim; 1.12: Firefox da)
 87048f6dc9edf97f6373d85f6bbe0ee8123db6a16fdbb1aa188a28849a79ac47  atasos-guncelleme-denetle.desktop  # atasOS'un kendi dosyasi (Claude yazdi; 1.6 autostart)
 # 2026-11-21 (6. parti: ISO'daki kutuphaneler kanala + xz/dbus)
 926ef8d3eab93fbf6e06011901273eec076b25594a4e1cdadd50c987f4f6d64e  sqlite-autoconf-3540100.tar.gz  # sqlite.org SHA3-256 b6ced585... ayni + Alpine sha512 ayni
@@ -70,3 +70,8 @@ e2e3f71c6931b4fb7375c8fd42b5e8b140345a46ba2c27af93cf8b8481cc4524  patch-6.18.64-
 61e7614b602201c28a189dafee78f5bceaee192bbde46a930752ff09cf5542fa  expat-2.11.0.tar.xz  # imza: Sebastian Pipping imzalama alt anahtari CB8DE70A90CFBF6C3BF5CC5696262ACFFBD3AEC6 (ana anahtar 3176EF7DB2367F1FCA4F306B1F9B0E909AF37285, 2.10.0 ile ayni)
 e2ec49090744383cdbe7df808c1cedaafba06a97be8dc4211fe546ba585f12cb  harfbuzz-15.2.0.tar.xz  # GitHub surum dosyasi; Fedora rawhide sources sha512 + Homebrew sha256 ayni (upstream imza yayinlamiyor)
 a797f6e02491a2fc60eda14a75e5e796b56513303c99b7465fd964227e98c4cf  polkit-kde-agent-1-6.3.4.tar.xz  # imza: KDE/Jonathan Riddell E0A3EB202F8E57528E13E72FD7574483BB57B18D (portal-kde 6.3.4 ile ayni anahtar)
+# 2026-11-27 (11. parti: guncelleyici 1.12 Firefox, openssh)
+bb92f0122ce453fc10834cc264911082c8d5bef79bcb37df2f35b9b2c2ab5c38  atasos-firefox-guncelle  # atasOS'un kendi dosyasi (Claude; v38 ISO'daki surumden: --en-yeni, Firefox acik -> cikis 3)
+02a946b33e24fdc043cb19a05ea42629d914208fdd502cc7d2a915590724e40d  atasos-firefox-guncelle.desktop  # atasOS'un kendi dosyasi (v38 ISO'dan birebir)
+fc29ef28c86ea491f1fde1106b57e41f95837621cee17925ed96f48cdceadf0d  org.atasos.firefox-guncelle.policy  # atasOS'un kendi dosyasi (v38 ISO'dan birebir)
+9ae44872090cf2f06b3cf9ff147e7f16f309671340763ed2f99248398ae29d5b  openssh-10.6p2.tar.gz  # imza: Damien Miller 7168B983815A5EEF59A4ADFD2A3F414E736060BA (openssh.com/portable.html + Arch validpgpkeys ayni; Arch sha256 de ayni)

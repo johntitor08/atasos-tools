@@ -1,0 +1,38 @@
+# atasOS tarifi: openssh (v36-v38'de 10.0p2, LFS usulu: PAM'siz, libcrypto/libz/libcrypt; sshd hizmeti ACIK DEGIL).
+# Yapilandirma (/etc/ssh: ssh_config, sshd_config, moduli, anahtarlar) pakete GIRMEZ: kullanicinin ayarlari korunur.
+# /var/lib/sshd (ayricalik ayirma dizini) ve sshd kullanicisi (uid/gid 50) sistemde zaten var; paket onlara dokunmaz.
+# ssh-keysign setuid root (4711) kalmali; tar paketleri 0:0 sahipli, izin burada acikca verilir.
+name=openssh
+version=10.6p2
+release=1
+description="OpenSSH istemci/sunucu - guvenlik guncellemesi (10.0p2 -> 10.6p2)"
+depends=()
+source=(openssh-10.6p2.tar.gz)
+
+build() {
+    # LFS / atasos-37 ile ayni secenekler; --with-pam YOK (PAM'siz, ozgun gibi)
+    ./configure --prefix=/usr --sysconfdir=/etc/ssh --with-privsep-path=/var/lib/sshd \
+                --with-default-path=/usr/bin --with-superuser-path=/usr/sbin:/usr/bin --with-pid-dir=/run
+    grep -q '^#define USE_PAM' config.h && { echo "PAM acilmis (ozgun PAM'siz)"; exit 1; }
+    make -j"$(nproc)"
+    make DESTDIR="$pkgdir" install
+    install -v -m755 contrib/ssh-copy-id "$pkgdir/usr/bin"
+    install -v -m644 contrib/ssh-copy-id.1 "$pkgdir/usr/share/man/man1"
+    rm -rf "$pkgdir/etc" "$pkgdir/var" "$pkgdir/run"
+    chmod 4711 "$pkgdir/usr/libexec/ssh-keysign"
+
+    # v38'deki tum programlar yeni pakette olmali
+    for f in usr/bin/scp usr/bin/sftp usr/bin/ssh usr/bin/ssh-add usr/bin/ssh-agent usr/bin/ssh-copy-id usr/bin/ssh-keygen \
+             usr/bin/ssh-keyscan usr/sbin/sshd usr/libexec/sftp-server usr/libexec/ssh-keysign usr/libexec/ssh-pkcs11-helper \
+             usr/libexec/ssh-sk-helper usr/libexec/sshd-auth usr/libexec/sshd-session; do
+        [ -x "$pkgdir/$f" ] || { echo "$f YOK"; exit 1; }
+    done
+    [ -u "$pkgdir/usr/libexec/ssh-keysign" ] || { echo "ssh-keysign setuid degil"; exit 1; }
+    # baglandigi kutuphaneler ozgunle ayni kume icinde kalmali (yeni bir bagimlilik dogmasin)
+    for f in usr/bin/ssh usr/sbin/sshd usr/libexec/sshd-session usr/libexec/sshd-auth usr/bin/ssh-keygen usr/libexec/sftp-server; do
+        fazla=$(readelf -d "$pkgdir/$f" | sed -n 's/.*NEEDED.*\[\(.*\)\]/\1/p' | grep -vxE 'libc\.so\.6|libcrypto\.so\.3|libz\.so\.1|libcrypt\.so\.2' || true)
+        [ -z "$fazla" ] || { echo "$f yeni kutuphaneye bagli: $fazla"; exit 1; }
+    done
+    v=$("$pkgdir/usr/bin/ssh" -V 2>&1); echo "surum: $v"
+    case "$v" in OpenSSH_10.6p2*) ;; *) echo "beklenen OpenSSH_10.6p2 degil"; exit 1 ;; esac
+}

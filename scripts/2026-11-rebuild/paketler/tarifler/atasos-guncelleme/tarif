@@ -1,12 +1,13 @@
 # atasOS tarifi: "Sistemi Guncelle" (atasos-guncelle + menu + polkit + temel paket listesi).
 # v36'da bir kez elle: sudo atspkg guncelle && sudo atspkg kur atasos-guncelleme ; sonra menuden "Sistemi Guncelle".
 name=atasos-guncelleme
-version=1.11
+version=1.12
 release=1
 description="atasOS sistem guncelleyicisi (Sistemi Guncelle menusu + gunluk guncelleme bildirimi)"
 depends=(atspkg)
 source=(atasos-guncelle atasos-guncelle.desktop org.atasos.guncelle.policy temel.list
-        atasos-guncelleme-denetle atasos-guncelleme-denetle.desktop)
+        atasos-guncelleme-denetle atasos-guncelleme-denetle.desktop
+        atasos-firefox-guncelle atasos-firefox-guncelle.desktop org.atasos.firefox-guncelle.policy)
 
 build() {
     install -Dm755 "$srcdir/atasos-guncelle"            "$pkgdir/usr/bin/atasos-guncelle"
@@ -16,4 +17,9 @@ build() {
     # 1.6: gunluk denetim + KDE bildirimi (kullanici olarak, root yok; hicbir sey kurmaz)
     install -Dm755 "$srcdir/atasos-guncelleme-denetle"         "$pkgdir/usr/bin/atasos-guncelleme-denetle"
     install -Dm644 "$srcdir/atasos-guncelleme-denetle.desktop" "$pkgdir/etc/xdg/autostart/atasos-guncelleme-denetle.desktop"
+    # 1.12: Firefox guncelleyicisi (v36-v38 ISO'larinda elle konmustu, artik kanaldan bakimli). Bildirim Firefox'u da
+    # denetler, "Sistemi Guncelle" paketlerden sonra Firefox'u da gunceller.
+    install -Dm755 "$srcdir/atasos-firefox-guncelle"           "$pkgdir/usr/bin/atasos-firefox-guncelle"
+    install -Dm644 "$srcdir/atasos-firefox-guncelle.desktop"   "$pkgdir/usr/share/applications/atasos-firefox-guncelle.desktop"
+    install -Dm644 "$srcdir/org.atasos.firefox-guncelle.policy" "$pkgdir/usr/share/polkit-1/actions/org.atasos.firefox-guncelle.policy"
 }

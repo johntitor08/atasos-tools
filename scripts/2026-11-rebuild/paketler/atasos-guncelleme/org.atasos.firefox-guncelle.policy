@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>atasOS</vendor>
+  <action id="org.atasos.firefox-guncelle.run">
+    <description>Update Firefox</description>
+    <description xml:lang="tr">Firefox'u guncelle</description>
+    <message>Authentication is required to update Firefox</message>
+    <message xml:lang="tr">Firefox'u guncellemek icin parolaniz gerekiyor</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/atasos-firefox-guncelle</annotate>
+  </action>
+</policyconfig>

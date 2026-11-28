@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Firefox'u Güncelle
+Name[en]=Update Firefox
+Comment=Firefox'u Mozilla'nın en yeni sürümüne günceller
+Comment[en]=Updates Firefox to Mozilla's latest release
+Exec=konsole --hold -e /usr/bin/atasos-firefox-guncelle
+Icon=firefox
+Terminal=false
+Categories=System;Network;

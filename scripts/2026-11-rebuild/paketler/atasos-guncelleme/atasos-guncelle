@@ -5,6 +5,8 @@
 #   3) temel listedeki (temel.list) paketlerden henuz atspkg'ye kayitli olmayanlari ilk kez kurar
 #      (atasOS'un ISO'dan gelen temel yazilimi atspkg veritabaninda yok; 'yukselt' onlari gormez)
 #   4) kayitli paketlerin yeni surumlerini kurar (atspkg yukselt)
+#   5) (1.12) Firefox'u (/opt/firefox, Mozilla'nin imzali surumu) gunceller: atasos-firefox-guncelle.
+#      Firefox aciksa atlanir (uyari verilir), paket guncellemesi yine basarili sayilir.
 # Menu: "Sistemi Guncelle" (Konsole icinde; parola pkexec ile sorulur). Elle: atasos-guncelle
 set -uo pipefail
 export LC_ALL=C.UTF-8
@@ -45,9 +47,21 @@ echo; echo "== yukseltmeler"
 T=$(mktemp); atspkg yukselt 2>&1 | tee "$T"; rc=${PIPESTATUS[0]}
 [ $rc -eq 0 ] || { rm -f "$T"; dur "yukseltme basarisiz"; }
 sayi=$((sayi + $(grep -c 'yükseltiliyor:' "$T" || true))); rm -f "$T"
+ffnot=""
+if [ -x /usr/bin/atasos-firefox-guncelle ] && [ -d /opt/firefox ]; then
+    echo; ffk=$(sed -n 's/^Version=//p' /opt/firefox/application.ini 2>/dev/null | head -1)
+    /usr/bin/atasos-firefox-guncelle; rc=$?
+    case $rc in
+        0) [ "$(sed -n 's/^Version=//p' /opt/firefox/application.ini 2>/dev/null | head -1)" != "$ffk" ] && sayi=$((sayi+1)) ;;
+        3) ffnot="  NOT: Firefox acik oldugu icin guncellenmedi (kapatip menuden 'Firefox'u Guncelle')." ;;
+        *) ffnot="  NOT: Firefox guncellenemedi (yukaridaki hataya bakin); paketler etkilenmedi." ;;
+    esac
+fi
 echo
 if [ $sayi -gt 0 ]; then
     echo "  TAMAM: $sayi paket kuruldu/guncellendi. Degisikliklerin tam etkili olmasi icin bilgisayari yeniden baslatin."
 else
     echo "  TAMAM: sistem guncel."
 fi
+[ -n "$ffnot" ] && echo "$ffnot"
+exit 0

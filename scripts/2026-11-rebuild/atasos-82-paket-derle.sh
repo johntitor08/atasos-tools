@@ -20,7 +20,7 @@ KN=/veri/atasos-iso/kanal
 LOG=$P/derleme-$(date +%Y%m%d-%H%M).log
 PAKETLER=("$@"); [ ${#PAKETLER[@]} -gt 0 ] || PAKETLER=(openssl curl sudo)
 # bagimlilik sirasi: her paket derlenir derlenmez gecici katmana kurulur, sonrakiler ona karsi derlenir (nss -> nspr+sqlite)
-SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups python git libjpeg-turbo freetype harfbuzz pipewire polkit polkit-kde-agent linux atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
+SIRA=(openssl curl sudo expat zlib xz dbus libxml2 libxslt libpng libarchive libtasn1 gnutls glib nspr sqlite nss libcups python git libjpeg-turbo freetype harfbuzz pipewire polkit polkit-kde-agent openssh linux atasos-xdg-open xdg-desktop-portal xdg-desktop-portal-kde fastfetch atasos-masaustu atasos-guncelleme)
 S2=(); for s in "${SIRA[@]}"; do for p in "${PAKETLER[@]}"; do [ "$p" = "$s" ] && S2+=("$p"); done; done
 for p in "${PAKETLER[@]}"; do [[ " ${SIRA[*]} " == *" $p "* ]] || S2+=("$p"); done
 PAKETLER=("${S2[@]}")
@@ -130,7 +130,7 @@ echo "########## 3/4  PAKET DENETIMI ##########"
 H=0
 for p in "${PAKETLER[@]}"; do
     F=${DOSYA[$p]}; L=$(tar -tvf "$F")
-    yasak=$(tar -tf "$F" | sed 's|^\./||' | grep -E '^(etc/sudoers|etc/sudo\.conf|etc/sudo_logsrvd\.conf|etc/ssl/openssl\.cnf|etc/passwd|etc/shadow|etc/group)$|^(etc/sudoers\.d|etc/ssl/certs|etc/dbus-1|tmp|mnt|root|home|var/lib/sudo|var/lib/dbus|run)(/|$)' || true)
+    yasak=$(tar -tf "$F" | sed 's|^\./||' | grep -E '^(etc/sudoers|etc/sudo\.conf|etc/sudo_logsrvd\.conf|etc/ssl/openssl\.cnf|etc/passwd|etc/shadow|etc/group)$|^(etc/sudoers\.d|etc/ssl/certs|etc/dbus-1|etc/ssh|var/lib/sshd|tmp|mnt|root|home|var/lib/sudo|var/lib/dbus|run)(/|$)' || true)
     [ -z "$yasak" ] && echo "  $p: yasak yol yok" || { echo "  $p: YASAK YOL <<<"; echo "$yasak" | sed 's/^/      /'; H=1; }
     X=$(mktemp -d /run/atasos-paket.XXXX); tar -xf "$F" -C "$X"
     rp=$(find "$X" -type f \( -name '*.so*' -o -perm -u+x \) -exec sh -c 'readelf -d "$1" 2>/dev/null | grep -E "R(UN)?PATH" | grep -c -E "/mnt/tarifler|/tmp|work/" >/dev/null && echo "$1"' _ {} \; | sed "s|$X/||")
@@ -138,6 +138,8 @@ for p in "${PAKETLER[@]}"; do
     rm -rf "$X"
     case $p in
         sudo) grep -qE '^-rws..x..x .* (\./)?usr/bin/sudo$' <<< "$L" && echo "  sudo: setuid root" || { echo "  sudo: setuid YOK <<<"; H=1; } ;;
+        openssh) grep -qE '^-rws--x--x .* (\./)?usr/libexec/ssh-keysign$' <<< "$L" && echo "  openssh: ssh-keysign setuid root (4711)" || { echo "  openssh: ssh-keysign izni beklenmedik <<<"; H=1; }
+                 grep -qE " (\./)?etc/" <<< "$L" && { echo "  openssh: /etc pakette (ssh ayarlari ezilirdi) <<<"; H=1; } || echo "  openssh: /etc pakette yok (ssh ayarlari korunur)" ;;
         openssl) for y in usr/lib/libcrypto.so.3 usr/lib64/libcrypto.so.3 usr/lib/libssl.so.3 usr/lib64/libssl.so.3 usr/bin/openssl; do
                      grep -qE " (\./)?$y$" <<< "$L" || { echo "  openssl: $y YOK <<<"; H=1; }; done; echo "  openssl: lib + lib64 kopyalari var" ;;
         # launch-helper pakette setuid'siz 0700; root:messagebus 4110'u kurulum kancasi verir (tar sahipleri 0:0 paketler)
@@ -171,6 +173,19 @@ for p in "${PAKETLER[@]}"; do
                  p=$(cr python3 -c 'import pyexpat; print(pyexpat.EXPAT_VERSION)' 2>&1); echo "  python pyexpat: $p (bilgi; python kendi expat'ini gomulu kullaniyor olabilir)" ;;
         zlib)    p=$(cr python3 -c 'import zlib; print(zlib.ZLIB_RUNTIME_VERSION)' 2>&1); echo "  zlib (python calisma ani): $p"; [ "$p" = 1.3.2 ] || H=1
                  c=$(cr sh -c 'echo atasos | gzip | gzip -d' 2>&1); echo "  gzip gidis-donus: $c"; [ "$c" = atasos ] || H=1 ;;
+        openssh) v=$(cr ssh -V 2>&1); echo "  openssh: $v"; grep -q "^OpenSSH_10.6p2" <<< "$v" || H=1
+                 # gercek giris denemesi: gecici anahtarlarla 127.0.0.1:22022'de sshd, ssh ile baglan, komut calistir
+                 c=$(cr sh -c 'd=$(mktemp -d) && ssh-keygen -q -t ed25519 -N "" -f $d/hk && ssh-keygen -q -t ed25519 -N "" -f $d/ik && cp $d/ik.pub $d/ak \
+                     && /usr/sbin/sshd -t -f /etc/ssh/sshd_config -h $d/hk && echo "sshd -t tamam" \
+                     && { /usr/sbin/sshd -D -f /etc/ssh/sshd_config -h $d/hk -E $d/log -o ListenAddress=127.0.0.1 -o Port=22022 -o PidFile=none \
+                            -o AuthorizedKeysFile=$d/ak -o StrictModes=no -o PermitRootLogin=prohibit-password & s=$!; sleep 2
+                          timeout 20 ssh -F /etc/ssh/ssh_config -p 22022 -i $d/ik -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            -o LogLevel=ERROR root@127.0.0.1 "echo giris-$(echo tamam)"; kill $s 2>/dev/null; wait $s 2>/dev/null; }
+                     r=$?; [ -s $d/log ] && [ $r -ne 0 ] && tail -n 5 $d/log; rm -rf $d' 2>&1)
+                 echo "$c" | sed 's/^/  ssh: /'; grep -qx "giris-tamam" <<< "$c" || { echo "  openssh: yerel giris denemesi BASARISIZ <<<"; H=1; }
+                 c=$(cr sh -c 'd=$(mktemp -d); ssh-keygen -q -t ed25519 -N "" -f $d/k && echo atasos > $d/m && ssh-keygen -q -Y sign -f $d/k -n dosya $d/m \
+                     && echo "atas $(cat $d/k.pub)" > $d/izin && ssh-keygen -Y verify -f $d/izin -I atas -n dosya -s $d/m.sig < $d/m; rm -rf $d' 2>&1)
+                 echo "  ssh-keygen imza/dogrulama: $c"; grep -q "^Good" <<< "$c" || H=1 ;;
         sudo)    v=$(cr sudo -V 2>&1 | head -1); echo "  sudo: $v"; grep -q "1.9.17p2" <<< "$v" || H=1
                  cr sudo -V 2>&1 | grep -q -- '--without-pam' && echo "  sudo: PAM'siz (ozgun gibi)" || { echo "  sudo: --without-pam YOK <<<"; H=1; }
                  cr visudo -c 2>&1 | sed 's/^/  visudo: /' ;;
@@ -289,7 +304,13 @@ print("ok")' 2>&1); echo "  Qt6Gui/pango/pangoft2/GTK3 yeni harfbuzz ile yukleni
                  cr glib-compile-schemas --strict --dry-run /usr/share/glib-2.0/schemas >/dev/null 2>&1 && echo "  glib-compile-schemas: semalar gecerli" || { echo "  glib-compile-schemas HATA <<<"; H=1; } ;;
         atasos-guncelleme) cr bash -n /usr/bin/atasos-guncelle && cr bash -n /usr/bin/atasos-guncelleme-denetle && [ -s $K/etc/xdg/autostart/atasos-guncelleme-denetle.desktop ] \
                      && echo "  guncelleyici + gunluk denetleyici: sozdizimi tamam, autostart var" || { echo "  guncelleyici/denetleyici sorunlu <<<"; H=1; }
-                 for t in xz dbus nspr sqlite nss libcups python git libjpeg-turbo freetype linux pipewire polkit harfbuzz polkit-kde-agent; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
+                 # 1.12: Firefox guncelleyici pakette (betik + menu + polkit eylemi)
+                 cr bash -n /usr/bin/atasos-firefox-guncelle && [ -x $K/usr/bin/atasos-firefox-guncelle ] && [ -s $K/usr/share/applications/atasos-firefox-guncelle.desktop ] \
+                     && [ -s $K/usr/share/polkit-1/actions/org.atasos.firefox-guncelle.policy ] && echo "  Firefox guncelleyici: betik + menu + polkit eylemi var" || { echo "  Firefox guncelleyici eksik <<<"; H=1; }
+                 grep -q 'atasos-firefox-guncelle --en-yeni' $K/usr/bin/atasos-guncelleme-denetle && grep -q '/usr/bin/atasos-firefox-guncelle; rc' $K/usr/bin/atasos-guncelle \
+                     && echo "  bildirim + Sistemi Guncelle Firefox'u da denetliyor" || { echo "  Firefox adimi eksik <<<"; H=1; }
+                 c=$(cr /usr/bin/atasos-firefox-guncelle --en-yeni 2>&1); echo "  Firefox (kurulu en-yeni): ${c:-/opt/firefox yok ya da Mozillaya ulasilamadi (bilgi)}"
+                 for t in xz dbus nspr sqlite nss libcups python git libjpeg-turbo freetype linux pipewire polkit harfbuzz polkit-kde-agent openssh; do grep -qx "$t" $K/usr/share/atasos-guncelleme/temel.list || { echo "  temel.list: $t YOK <<<"; H=1; }; done
                  [ "$(grep -nx nspr $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" -lt "$(grep -nx nss $K/usr/share/atasos-guncelleme/temel.list | cut -d: -f1)" ] \
                      && echo "  temel.list: 6. parti var (nspr/sqlite nss'ten once)" || { echo "  temel.list: sira yanlis <<<"; H=1; } ;;
         fastfetch) v=$(cr fastfetch --version 2>&1 | head -1); echo "  fastfetch: $v"; grep -q "2\.71\.0" <<< "$v" || H=1
@@ -298,7 +319,7 @@ print("ok")' 2>&1); echo "  Qt6Gui/pango/pangoft2/GTK3 yeni harfbuzz ile yukleni
                      [ -e $K$f ] && echo "  portal-kde: $f var" || { echo "  portal-kde: $f YOK <<<"; H=1; }; done ;;
     esac
 done
-ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell /usr/bin/xz /usr/lib/liblzma.so.5 /usr/bin/kmod /usr/lib/systemd/systemd /usr/bin/dbus-daemon /usr/lib/libdbus-1.so.3 /usr/libexec/dbus-daemon-launch-helper /usr/bin/NetworkManager /usr/bin/python3.13 /usr/lib/libpython3.13.so.1.0 /usr/bin/git /usr/libexec/git-core/git-remote-https /usr/lib/libjpeg.so.62 /usr/lib/libturbojpeg.so.0 /usr/lib/libfreetype.so.6 /usr/bin/fc-list /usr/lib/libharfbuzz.so.0 /usr/lib/python3.13/site-packages/libxsltmod.so /usr/lib/python3.13/site-packages/yaml/_yaml.cpython-313-x86_64-linux-gnu.so /usr/bin/pipewire /usr/lib64/libpipewire-0.3.so.0 /usr/lib/polkit-1/polkitd /usr/bin/pkexec /usr/lib64/libpolkit-gobject-1.so.0 /usr/lib64/libharfbuzz.so.0 /usr/lib64/libharfbuzz-subset.so.0 /usr/lib/libQt6Gui.so.6 /usr/lib64/libpango-1.0.so.0 /usr/lib64/libgtk-3.so.0 /usr/libexec/polkit-kde-authentication-agent-1; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
+ek=$(cr sh -c 'for b in /usr/bin/openssl /usr/bin/curl /usr/bin/sudo /usr/lib/sudo/sudoers.so /usr/lib/libcurl.so.4 /usr/bin/xmlwf /usr/lib/libexpat.so.1 /usr/lib/libz.so.1 /usr/lib/libnspr4.so /usr/lib/libnss3.so /usr/lib/libsoftokn3.so /usr/bin/certutil /usr/bin/sqlite3 /usr/lib/libsqlite3.so.0 /usr/lib/libcups.so.2 /usr/libexec/xdg-desktop-portal /usr/libexec/xdg-document-portal /usr/libexec/xdg-permission-store /usr/libexec/xdg-desktop-portal-kde /usr/bin/fastfetch /usr/bin/xmllint /usr/lib/libxml2.so.2 /usr/lib/libpng16.so.16 /usr/bin/pngfix /usr/lib/libarchive.so.13 /usr/bin/bsdtar /usr/bin/xsltproc /usr/lib/libxslt.so.1 /usr/lib/libgnutls.so.30 /usr/bin/gnutls-cli /usr/lib64/libglib-2.0.so.0 /usr/lib64/libgio-2.0.so.0 /usr/bin/gsettings /usr/bin/plasmashell /usr/bin/xz /usr/lib/liblzma.so.5 /usr/bin/kmod /usr/lib/systemd/systemd /usr/bin/dbus-daemon /usr/lib/libdbus-1.so.3 /usr/libexec/dbus-daemon-launch-helper /usr/bin/NetworkManager /usr/bin/python3.13 /usr/lib/libpython3.13.so.1.0 /usr/bin/git /usr/libexec/git-core/git-remote-https /usr/lib/libjpeg.so.62 /usr/lib/libturbojpeg.so.0 /usr/lib/libfreetype.so.6 /usr/bin/fc-list /usr/lib/libharfbuzz.so.0 /usr/lib/python3.13/site-packages/libxsltmod.so /usr/lib/python3.13/site-packages/yaml/_yaml.cpython-313-x86_64-linux-gnu.so /usr/bin/pipewire /usr/lib64/libpipewire-0.3.so.0 /usr/lib/polkit-1/polkitd /usr/bin/pkexec /usr/lib64/libpolkit-gobject-1.so.0 /usr/lib64/libharfbuzz.so.0 /usr/lib64/libharfbuzz-subset.so.0 /usr/lib/libQt6Gui.so.6 /usr/lib64/libpango-1.0.so.0 /usr/lib64/libgtk-3.so.0 /usr/libexec/polkit-kde-authentication-agent-1 /usr/bin/ssh /usr/sbin/sshd /usr/libexec/sshd-session /usr/libexec/sshd-auth /usr/bin/ssh-keygen; do [ -e $b ] && ldd $b; done 2>/dev/null | grep "not found" | sort -u')
 [ -z "$ek" ] && echo "  eksik kutuphane yok" || { echo "  EKSIK KUTUPHANE <<<"; echo "$ek" | sed 's/^/    /'; H=1; }
 cr atspkg listele 2>&1 | sed 's/^/  kurulu: /'
 [ $H -eq 0 ] || { echo "  DURDU: duman testi basarisiz; paketler yayinlanmamali."; exit 1; }

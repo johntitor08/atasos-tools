@@ -52,6 +52,16 @@ EOF
     echo "-- ortam (environment.d, plasma-workspace/env, electron bayraklari):"
     grep -hiE 'SCALE|DPI|GDK_|QT_|ELECTRON|OZONE' "$H"/.config/environment.d/* "$H"/.config/plasma-workspace/env/* 2>/dev/null | sed 's/^/   /'
     for f in "$H"/.config/*flags*.conf; do [ -f "$f" ] && { echo "   ${f##*/}:"; sed 's/^/     /' "$f"; }; done
+    # oturum acilisi (autostart) ve kullanici menusu: buradaki HER .desktop etkindir (yedekler dahil)
+    for d in "$H/.config/autostart" "$H/.local/share/applications"; do
+        echo "-- ${d#$H/} (Claude girdileri):"
+        for f in "$d"/*; do
+            [ -f "$f" ] || continue
+            grep -qi 'claude' "$f" 2>/dev/null || continue
+            echo "   ${f##*/}  (Hidden=$(sed -n 's/^Hidden=//p' "$f" | head -1))"
+            grep -h '^Exec=' "$f" | sed 's/^/     /'
+        done
+    done
     for C in "$H/.config/Claude" "$H/.var/app/"*laude*/config/Claude; do
         [ -d "$C" ] || continue
         echo "-- Claude ayarlari: ${C#$M}"
